@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: erlang:25.3
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        # Checkout all history for all branches and tags
+        fetch-depth: 0
+    - name: Current Directory
+      run:  pwd
+    - name: Compile
+      run:  make
+    - name: Run tests
+      run:  make eunit
+    - name: Run benchmarks
+      run:  make benchmark

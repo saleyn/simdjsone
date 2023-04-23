@@ -1,0 +1,7 @@
+*.o
+*.dump
+*.beam
+mix.*
+deps/
+priv/
+_build/
