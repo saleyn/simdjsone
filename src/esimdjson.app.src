@@ -1,10 +1,9 @@
-{application,    esimdjson,
- [{description,  "Fast Erlang JSON decoder based on the C++ simdjson library"},
-  {vsn,          "0.1"},
-  {registered,   []},
-  {modules,      []},
-  {env,          []},
-  {applications, [kernel, stdlib]},
-  {licenses,     ["Apache 2.0"]},
-  {links,        [{"GitHub", "https://github.com/saleyn/esimdjson"}]}
- ]}.
+{application,esimdjson,
+             [{description,"Fast Erlang JSON decoder based on the C++ simdjson library"},
+              {vsn,"0.1.0"},
+              {registered,[]},
+              {modules,[]},
+              {env,[]},
+              {applications,[kernel,stdlib]},
+              {licenses,["Apache 2.0"]},
+              {links,[{"GitHub","https://github.com/saleyn/esimdjson"}]}]}.
