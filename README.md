@@ -91,6 +91,7 @@ $ make benchmark
 If you have Elixir install, the project also includes a benchmark for the
 [jason](https://hex.pm/packages/jason) Elixir parser:
 ```
+$ make mix-benchmark
 === Benchmark (file size: 616.7K) ===
    simdjsone:   5654.500us
        jason:   8745.330us
