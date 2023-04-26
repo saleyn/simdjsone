@@ -25,6 +25,22 @@ For small JSON objects `esimdjson` is about twice faster than
 
 Serge Aleynikov
 
+## Installation
+
+Include the following dependency in your project.
+
+Erlang (`rebar.config`):
+```erlang
+{deps, [{esimdjson, "0.1"}]}.
+```
+
+Elixir (`mix.exs`):
+```elixir
+def deps() do
+  [{:esimdjson, "~> 0.1"}]
+end
+```
+
 ## Build
 
 ```bash
