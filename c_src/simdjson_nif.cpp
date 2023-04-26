@@ -51,24 +51,27 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm)
   if (!enif_is_current_process_alive(env)) [[unlikely]]
     throw DeadProcError();
 
-  // See:
   switch(elm.type()) {
-    case dom::element_type::ARRAY: {
-      std::vector<ERL_NIF_TERM> cs;
-      for(dom::element c : dom::array(elm))
-        cs.push_back(make_term(env, c));
-      return enif_make_list_from_array(env, cs.data(), cs.size());
-    }
     case dom::element_type::OBJECT: {
-      std::vector<ERL_NIF_TERM> ks;
-      std::vector<ERL_NIF_TERM> vs;
-      for(auto field : dom::object(elm)) {
-        ks.push_back(make_binary(env, field.key));
-        vs.push_back(make_term(env, field.value));
+      auto obj = dom::object(elm);
+      int  i   = 0;
+      std::vector<ERL_NIF_TERM> ks(obj.size());
+      std::vector<ERL_NIF_TERM> vs(obj.size());
+      for(auto field : obj) {
+        ks.at(i)   = make_binary(env, field.key);
+        vs.at(i++) = make_term(env, field.value);
       }
       ERL_NIF_TERM m;
       return enif_make_map_from_arrays(env, ks.data(), vs.data(), ks.size(), &m)
            ? m : enif_raise_exception(env, ATOM_DUP_KEYS_FOUND);
+    }
+    case dom::element_type::ARRAY: {
+      auto array = dom::array(elm);
+      int  i     = 0;
+      std::vector<ERL_NIF_TERM> cs(array.size());
+      for(dom::element c : array)
+        cs.at(i++) = make_term(env, c);
+      return enif_make_list_from_array(env, cs.data(), cs.size());
     }
     case dom::element_type::STRING: {
       ErlNifBinary bin;

@@ -7,7 +7,7 @@
 %%% To modify this behavior, set the following configuration option to another
 %%% atom:
 %%% ```
-%%% {esimdjson, [{null, MyNullAtom}]}.
+%%% {simdjsone, [{null, MyNullAtom}]}.
 %%% ```
 %%% @end
 %%%----------------------------------------------------------------------------
@@ -27,8 +27,8 @@
 -endif.
 
 init() ->
-  NullVal = application:get_env(esimdjson, null, null),
-  is_atom(NullVal) orelse erlang:error("Option esimdjson/null mush be an atom"),
+  NullVal = application:get_env(simdjsone, null, null),
+  is_atom(NullVal) orelse erlang:error("Option simdjsone/null mush be an atom"),
   SoName  =
     case code:priv_dir(?LIBNAME) of
       {error, bad_name} ->
@@ -120,7 +120,7 @@ benchmark(N, Bin, NameFuns) ->
   io:format("\n=== Benchmark (file size: ~.1fK) ===\n", [byte_size(Bin) / 1024]),
   P = self(),
   L = [
-    {"esimdjson", fun(B) -> simdjson:decode(B)             end},
+    {"simdjsone", fun(B) -> simdjson:decode(B)             end},
     {"jiffy",     fun(B) -> jiffy:decode(B, [return_maps]) end},
     {"thoas",     fun(B) -> {ok, R} = thoas:decode(B), R   end}
   ] ++ NameFuns,

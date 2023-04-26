@@ -1,6 +1,6 @@
-# esimdjson
+# simdjsone
 
-[![build](https://github.com/saleyn/esimdjson/actions/workflows/erlang.yml/badge.svg)](https://github.com/saleyn/esimdjson/actions/workflows/erlang.yml)
+[![build](https://github.com/saleyn/simdjsone/actions/workflows/erlang.yml/badge.svg)](https://github.com/saleyn/simdjsone/actions/workflows/erlang.yml)
 
 An implementation of a fast Erlang JSON parser using the C++
 [simdjson](https://github.com/simdjson/simdjson) library. The decoding speed of
@@ -17,7 +17,7 @@ Only a subset of functionality is implemented:
 - The resources stored in the cache will get automatically garbage collected
   when the owner process dies.
 
-For small JSON objects `esimdjson` is about twice faster than
+For small JSON objects `simdjsone` is about twice faster than
 [jiffy](https://github.com/davisp/jiffy) and for large JSON objects, it's about
 30% faster than `jiffy`.
 
@@ -31,13 +31,13 @@ Include the following dependency in your project.
 
 Erlang (`rebar.config`):
 ```erlang
-{deps, [{esimdjson, "0.1"}]}.
+{deps, [{simdjsone, "0.1"}]}.
 ```
 
 Elixir (`mix.exs`):
 ```elixir
 def deps() do
-  [{:esimdjson, "~> 0.1"}]
+  [{:simdjsone, "~> 0.1"}]
 end
 ```
 
@@ -74,17 +74,17 @@ ok
 
 ## Performance Benchmark
 
-To run the performance benchmark of `esimdjson` against
+To run the performance benchmark of `simdjsone` against
 [jiffy](https://hex.pm/packages/jiffy) and [thoas](https://hex.pm/packages/thoas) do:
 ```
 $ make benchmark
 === Benchmark (file size: 616.7K) ===
-   esimdjson:   4751.140us
+   simdjsone:   4751.140us
        thoas:   8625.790us
        jiffy:  13075.610us
 
 === Benchmark (file size: 1.3K) ===
-   esimdjson:      8.290us
+   simdjsone:      8.290us
        jiffy:     12.990us
        thoas:     23.830us
 ```
@@ -92,12 +92,12 @@ If you have Elixir install, the project also includes a benchmark for the
 [jason](https://hex.pm/packages/jason) Elixir parser:
 ```
 === Benchmark (file size: 616.7K) ===
-   esimdjson:   5654.500us
+   simdjsone:   5654.500us
        jason:   8745.330us
        thoas:   9052.840us
        jiffy:  13916.590us
 === Benchmark (file size: 1.3K) ===
-   esimdjson:      8.680us
+   simdjsone:      8.680us
        jiffy:     14.490us
        thoas:     15.410us
        jason:     25.050us
