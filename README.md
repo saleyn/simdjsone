@@ -1,5 +1,7 @@
 # esimdjson
 
+[![build](https://github.com/saleyn/esimdjson/actions/workflows/erlang.yml/badge.svg)](https://github.com/saleyn/esimdjson/actions/workflows/erlang.yml)
+
 An implementation of a fast Erlang JSON parser using the C++
 [simdjson](https://github.com/simdjson/simdjson) library. The decoding speed of
 this parser is about 2.5 times faster than `jiffy`.
