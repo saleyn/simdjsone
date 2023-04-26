@@ -25,6 +25,4 @@ jobs:
     - name: Compile
       run:  make
     - name: Run tests
-      run:  make eunit
-    - name: Run benchmarks
-      run:  make benchmark
+      run:  make test
