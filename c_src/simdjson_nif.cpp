@@ -80,8 +80,8 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm)
       memcpy(bin.data, str.data(), str.length());
       return enif_make_binary(env, &bin);
     }
-    case dom::element_type::INT64:      return enif_make_long(env, elm);
-    case dom::element_type::UINT64:     return enif_make_ulong(env, elm);
+    case dom::element_type::INT64:      return enif_make_long(env, int64_t(elm));
+    case dom::element_type::UINT64:     return enif_make_ulong(env, uint64_t(elm));
     case dom::element_type::DOUBLE:     return enif_make_double(env, elm);
     case dom::element_type::BOOL:       return elm.get<bool>() ? ATOM_TRUE : ATOM_FALSE;
     case dom::element_type::NULL_VALUE:
