@@ -29,8 +29,8 @@ ifeq ($(UNAME_SYS), Linux)
 	CXXFLAGS ?= -mavx2 -finline-functions -Wall -std=c++20 
 else ifeq ($(UNAME_SYS), Darwin)
 	CXX = g++
-	CXXFLAGS ?= -mavx2 -arch x86_64 -finline-functions -Wall -std=c++20 -pie
-	LDFLAGS ?= -arch x86_64 -flat_namespace -undefined suppress
+	CXXFLAGS ?= -finline-functions -Wall -std=c++20 -pie
+	LDFLAGS ?= -flat_namespace -undefined suppress
 else ifeq ($(UNAME_SYS), FreeBSD)
 	CXX = g++
 	CXXFLAGS ?= -mavx2 -finline-functions -Wall -std=c++20
