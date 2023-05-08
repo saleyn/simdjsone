@@ -1,6 +1,7 @@
 *.o
 *.dump
 *.beam
+.vscode/bookmarks.json
 mix.*
 deps/
 priv/
