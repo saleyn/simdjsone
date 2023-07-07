@@ -18,25 +18,25 @@ else
 endif
 
 ifeq ($(NIF_DEBUG),0)
-	OPTIMIZE = -O3 -DNDEBUG
+	OPTIMIZE  = -O3 -DNDEBUG
 else
-	OPTIMIZE = -O0 -g
+	OPTIMIZE  = -O0 -g
 endif
 
-UNAME_SYS := $(shell uname -s)
-ifeq ($(UNAME_SYS), Linux)
-	CXX = g++
-	CXXFLAGS ?= -mavx2 -finline-functions -Wall -std=c++20 
-else ifeq ($(UNAME_SYS), Darwin)
-	CXX = g++
-	CXXFLAGS ?= -finline-functions -Wall -std=c++20 -pie
-	LDFLAGS ?= -flat_namespace -undefined suppress
-else ifeq ($(UNAME_SYS), FreeBSD)
-	CXX = g++
-	CXXFLAGS ?= -mavx2 -finline-functions -Wall -std=c++20
+CXX        ?= g++
+CXX_OPTS    = -finline-functions -Wall -std=c++20 
+
+UNAME_SYS  := $(shell uname -s)
+ifeq ($(UNAME_SYS),Linux)
+	CXXFLAGS ?= -mavx2
+else ifeq ($(UNAME_SYS),Darwin)
+	CXXFLAGS ?= -pie
+	LDFLAGS  ?= -flat_namespace -undefined suppress
+else ifeq ($(UNAME_SYS),FreeBSD)
+	CXXFLAGS ?= -mavx2
 endif
 
-CXXFLAGS   += $(SIMDJSON_FLAGS) $(OPTIMIZE) -fPIC $(ERL_CXXFLAGS)
+CXXFLAGS   += $(SIMDJSON_FLAGS) $(OPTIMIZE) -fPIC $(CXX_OPTS) $(ERL_CXXFLAGS)
 LDFLAGS    += $(ERL_LDFLAGS) -lei -shared
 
 SRC_DIR     = $(CURDIR)
