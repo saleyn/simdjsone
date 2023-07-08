@@ -1,6 +1,6 @@
 CURDIR		:= $(shell pwd)
 BASEDIR		:= $(abspath $(dir $(CURDIR)))
-PROJECT		?= simdjson
+PROJECT		?= simdjsone
 PROJECT		:= $(strip $(PROJECT))
 
 ERL_CXXFLAGS ?= $(shell erl -noshell -noinput -eval "io:format(\"-I~ts/erts-~ts/include -I~ts\", [code:root_dir(), erlang:system_info(version), code:lib_dir(erl_interface, include)]), halt(0).")
@@ -57,8 +57,8 @@ LDFLAGS    += $(ERL_LDFLAGS) -lei -shared
 SRC_DIR     = $(CURDIR)
 SO_OUTPUT  ?= $(BASEDIR)/priv/$(PROJECT).so
 
-SOURCES    := $(wildcard $(SRC_DIR)/*.c*)
-OBJECTS     = $(addsuffix .o, $(basename $(SOURCES)))
+SOURCES    := $(wildcard *.c*)
+OBJECTS     = $(SOURCES:%.cpp=%.o)
 
 COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
 
@@ -70,6 +70,11 @@ deps: simdjson.h simdjson.cpp
 
 clean:
 	rm -f $(SO_OUTPUT) *.o
+
+info:
+	@echo "SOURCES: $(SOURCES)"
+	@echo "OBJECTS: $(OBJECTS)"
+	@echo "OUTPUT:  $(SO_OUTPUT)"
 
 simdjson.h simdjson.cpp:
 	wget -q https://raw.githubusercontent.com/simdjson/simdjson/master/singleheader/$@

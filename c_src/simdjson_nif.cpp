@@ -18,6 +18,7 @@ static constexpr const size_t TIMESLICE_BYTES     = ERL_REDUCTION_COUNT * BYTES_
 static ErlNifResourceType* JSON_RESOURCE;
 
 static ERL_NIF_TERM ATOM_OK;
+static ERL_NIF_TERM ATOM_ERROR;
 static ERL_NIF_TERM ATOM_TRUE;
 static ERL_NIF_TERM ATOM_FALSE;
 static ERL_NIF_TERM ATOM_NULL;
@@ -89,7 +90,45 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm)
   }
 }
 
-static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin) {
+static ERL_NIF_TERM error_reason(ErlNifEnv* env, error_code err)
+{
+  switch (err) {
+    case CAPACITY:                   return make_binary(env, "This parser can't support a document that big");
+    case MEMALLOC:                   return make_binary(env, "Error allocating memory, most likely out of memory");
+    case TAPE_ERROR:                 return make_binary(env, "Something went wrong, this is a generic error");
+    case DEPTH_ERROR:                return make_binary(env, "Your document exceeds the user-specified depth limitation");
+    case STRING_ERROR:               return make_binary(env, "Problem while parsing a string");
+    case T_ATOM_ERROR:               return make_binary(env, "Problem while parsing an atom starting with 't'");
+    case F_ATOM_ERROR:               return make_binary(env, "Problem while parsing an atom starting with 'f'");
+    case N_ATOM_ERROR:               return make_binary(env, "Problem while parsing an atom starting with 'n'");
+    case NUMBER_ERROR:               return make_binary(env, "Problem while parsing a number");
+    case UTF8_ERROR:                 return make_binary(env, "The input is not valid UTF-8");
+    case UNINITIALIZED:              return make_binary(env, "Uninitialized document");
+    case EMPTY:                      return make_binary(env, "No structural element found");
+    case UNESCAPED_CHARS:            return make_binary(env, "Found unescaped characters in a string");
+    case UNCLOSED_STRING:            return make_binary(env, "Missing quote at the end");
+    case UNSUPPORTED_ARCHITECTURE:   return make_binary(env, "Unsupported architecture");
+    case INCORRECT_TYPE:             return make_binary(env, "Element has a different type than user expected");
+    case NUMBER_OUT_OF_RANGE:        return make_binary(env, "Number does not fit in 64 bits");
+    case INDEX_OUT_OF_BOUNDS:        return make_binary(env, "Array index too large");
+    case NO_SUCH_FIELD:              return make_binary(env, "Field not found in object");
+    case IO_ERROR:                   return make_binary(env, "Error reading a file");
+    case INVALID_JSON_POINTER:       return make_binary(env, "Invalid JSON pointer reference");
+    case INVALID_URI_FRAGMENT:       return make_binary(env, "Invalid URI fragment");
+    case UNEXPECTED_ERROR:           return make_binary(env, "Indicative of a bug in simdjson");
+    case PARSER_IN_USE:              return make_binary(env, "Parser is already in use");
+    case OUT_OF_ORDER_ITERATION:     return make_binary(env, "Tried to iterate an array or object out of order");
+    case INSUFFICIENT_PADDING:       return make_binary(env, "Not enough padding for simdjson to safely parse it");
+    case INCOMPLETE_ARRAY_OR_OBJECT: return make_binary(env, "The document ends early");
+    case SCALAR_DOCUMENT_AS_VALUE:   return make_binary(env, "A scalar document is treated as a value");
+    case OUT_OF_BOUNDS:              return make_binary(env, "Attempted to access location outside of document");
+    case TRAILING_CONTENT:           return make_binary(env, "Unexpected trailing content");
+    default:                         return make_binary(env, "Unknown error code " + std::to_string(int(err)));
+  }
+}
+
+static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin)
+{
   try {
     dom::parser parser;
     dom::element elm = parser.parse(reinterpret_cast<const char*>(bin.data), bin.size);
@@ -102,7 +141,8 @@ static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin) {
   }
 }
 
-static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
   ErlNifBinary bin;
 
   [[maybe_unused]] auto res = enif_inspect_binary(env, argv[0], &bin);
@@ -138,7 +178,8 @@ static bool consume_timeslice(ErlNifEnv* env, uint64_t start_time = 0) {
 }
 */
 
-static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
   ErlNifBinary bin;
   ERL_NIF_TERM args[1];
 
@@ -162,7 +203,8 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                            ERL_NIF_DIRTY_JOB_CPU_BOUND, decode_dirty, argc, args);
 }
 
-static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
   ErlNifBinary bin;
   if (!enif_inspect_binary(env, argv[0], &bin) &&
       !enif_inspect_iolist_as_binary(env, argv[0], &bin))
@@ -208,7 +250,8 @@ static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
   return resource;
 }
 
-static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
   dom::document* doc;
   if (argc != 2 || !enif_get_resource(env, argv[0], JSON_RESOURCE, (void**)&doc)) [[unlikely]]
     return enif_make_badarg(env);
@@ -231,6 +274,53 @@ static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   } catch (DeadProcError const&) {
     return enif_raise_exception(env, ATOM_ENOPROCESS);
   }
+}
+
+static ERL_NIF_TERM minify(ErlNifEnv* env, const ErlNifBinary& bin)
+{
+  std::unique_ptr<char[]> buffer{new char[bin.size]};
+  size_t size{};
+  auto error = simdjson::minify((const char*)bin.data, bin.size, buffer.get(), size);
+  if (error != simdjson::SUCCESS) [[unlikely]]
+    return enif_make_tuple2(env, ATOM_ERROR, error_reason(env, error));
+
+  return enif_make_tuple2(env, ATOM_OK, make_binary(env, std::string_view(buffer.get(), size)));
+}
+
+static ERL_NIF_TERM minify_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  ErlNifBinary bin;
+
+  [[maybe_unused]] auto res = enif_inspect_binary(env, argv[0], &bin);
+
+  assert(res);
+
+  return minify(env, bin);
+}
+
+static ERL_NIF_TERM minify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  ErlNifBinary bin;
+  ERL_NIF_TERM args[1];
+
+  if (argc != 1) [[unlikely]]
+    return enif_make_badarg(env);
+
+  if (enif_inspect_binary(env, argv[0], &bin)) [[likely]] {
+    if (bin.size < TIMESLICE_BYTES)
+      return decode(env, bin);
+
+    args[0] = argv[0];
+  }
+  else if (!enif_inspect_iolist_as_binary(env, argv[0], &bin)) [[unlikely]]
+    return enif_make_badarg(env);
+  else if (bin.size < TIMESLICE_BYTES)
+    return minify(env, bin);
+  else
+    args[0] = enif_make_binary(env, &bin);
+
+  return enif_schedule_nif(env, "simdjson_minify",
+                           ERL_NIF_DIRTY_JOB_CPU_BOUND, minify_dirty, argc, args);
 }
 
 static void resource_dtor(ErlNifEnv* env, void* arg)
@@ -259,6 +349,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
   JSON_RESOURCE       = enif_open_resource_type_x(env, "simjson_resource",
                                                   &rti, flags, nullptr);
   ATOM_OK             = enif_make_atom(env, "ok");
+  ATOM_ERROR          = enif_make_atom(env, "error");
   ATOM_TRUE           = enif_make_atom(env, "true");
   ATOM_FALSE          = enif_make_atom(env, "false");
   ATOM_NIL            = enif_make_atom(env, "nil");
@@ -296,6 +387,7 @@ static ErlNifFunc funcs[] = {
   {"decode", 1, decode_nif},
   {"parse",  1, parse_nif},
   {"get",    2, get_nif},
+  {"minify", 1, minify_nif},
 };
 
 ERL_NIF_INIT(simdjson, funcs, load, nullptr, upgrade, nullptr);

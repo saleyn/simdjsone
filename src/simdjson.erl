@@ -17,7 +17,7 @@
 
 -on_load(init/0).
 
--define(LIBNAME, ?MODULE).
+-define(LIBNAME, simdjsone).
 -define(NOT_LOADED_ERROR,
   erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, ?LINE}]})).
 
@@ -28,7 +28,7 @@
 
 init() ->
   NullVal = application:get_env(simdjsone, null, null),
-  is_atom(NullVal) orelse erlang:error("Option simdjsone/null mush be an atom"),
+  is_atom(NullVal) orelse erlang:error("Option simdjsone/null must be an atom"),
   SoName  =
     case code:priv_dir(?LIBNAME) of
       {error, bad_name} ->
@@ -60,6 +60,11 @@ parse(_Bin) ->
 %% `parse/1,2'.
 -spec get(reference(), binary()) -> term().
 get(_Ref, Path) when is_binary(Path) ->
+  ?NOT_LOADED_ERROR.
+
+%% @doc Minify a JSON string or binary.
+-spec minify(binary()|list()) -> {ok, binary()} | {error, binary()}.
+minify(_BinOrStr) ->
   ?NOT_LOADED_ERROR.
 
 -ifdef(EUNIT).
@@ -94,6 +99,12 @@ cached_decode_ownership_test_() ->
       %%?_assertException(error, badarg, get(Ref, "/c/c"))
     end
   }.
+
+minify_test_() ->
+  [
+    ?_assertEqual({ok, <<"[1,2,3]">>}, minify("[ 1, 2, 3 ]")),
+    ?_assertEqual({ok, <<"[{\"a\":true,\"b\":false},2,3]">>}, minify("[ {\"a\": true, \"b\":  false}, 2, 3 ]"))
+  ].
 
 benchmark_test_() ->
   case os:getenv("MIX_ENV") of
