@@ -120,6 +120,8 @@ benchmark(NameFuns) ->
   benchmark(File1, NameFuns),
   File2 = filename:join(Dir, "test/data/esad.json"),
   benchmark(File2, NameFuns),
+  File3 = filename:join(Dir, "test/data/small.json"),
+  benchmark(File3, NameFuns),
   ok.
 
 benchmark(File, NameFuns) ->

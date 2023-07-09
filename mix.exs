@@ -4,7 +4,7 @@ defmodule Simdjsone.MixProject do
   def project do
     [
       app:             :simdjsone,
-      version:         "0.1.0",
+      version:         "0.1.1",
       elixir:          "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps:            deps()
@@ -21,10 +21,11 @@ defmodule Simdjsone.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:benchee, "~> 1.0",   only: :test},
       {:jiffy,   "~> 1.1.1", only: :test},
       {:jason,   "~> 1.4",   only: :test},
-      {:benchee, "~> 1.0",   only: :test},
-      {:thoas,   "~> 1.0",   only: :test}
+      {:thoas,   "~> 1.0",   only: :test},
+      {:poison,  "~> 5.0",   only: :test},
     ]
   end
 end

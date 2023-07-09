@@ -1,0 +1,4 @@
+[
+  {"a": 123456, "b": 0.1234567, "c": true,  "d": "This is a test1"},
+  {"a": 654321, "b": 0.7654321, "c": false, "d": "This is a test2"}
+]

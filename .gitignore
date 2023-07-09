@@ -1,5 +1,6 @@
 *.o
 *.dump
+*.crashdump
 *.beam
 .vscode/bookmarks.json
 mix.*

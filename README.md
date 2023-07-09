@@ -84,14 +84,19 @@ compiler):
 ```
 $ make benchmark
 === Benchmark (file size: 616.7K) ===
-   simdjsone:   4751.140us
-       thoas:   8625.790us
-       jiffy:  13075.610us
+   simdjsone:   5443.820us
+       thoas:   9843.790us
+       jiffy:  14222.450us
 
 === Benchmark (file size: 1.3K) ===
-   simdjsone:      8.290us
-       jiffy:     12.990us
-       thoas:     23.830us
+   simdjsone:      8.040us
+       jiffy:     14.510us
+       thoas:     21.630us
+
+=== Benchmark (file size: 0.1K) ===
+   simdjsone:      1.160us
+       jiffy:      2.700us
+       thoas:      2.510us
 ```
 If you have Elixir install, the project also includes a benchmark for the
 [jason](https://hex.pm/packages/jason) Elixir parser:
