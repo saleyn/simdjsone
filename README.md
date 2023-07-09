@@ -2,9 +2,12 @@
 
 [![build](https://github.com/saleyn/simdjsone/actions/workflows/erlang.yml/badge.svg)](https://github.com/saleyn/simdjsone/actions/workflows/erlang.yml)
 
-An implementation of a fast Erlang JSON parser using the C++
-[simdjson](https://github.com/simdjson/simdjson) library. The decoding speed of
-this parser is about 2.5 times faster than `jiffy`.
+An implementation of the fastest JSON parser for Erlang/Elixir using the C++
+[simdjson](https://github.com/simdjson/simdjson) NIF library. The decoding speed
+of this parser is about 2.5 times faster than `jiffy`.
+
+**NOTE**: The library currently doen't have a JSON encoder, it is only focused
+on fast JSON parsing.
 
 See [full documentation](https://simdjson.github.io/simdjson/index.html) of the C++ library.
 
@@ -75,7 +78,9 @@ ok
 ## Performance Benchmark
 
 To run the performance benchmark of `simdjsone` against
-[jiffy](https://hex.pm/packages/jiffy) and [thoas](https://hex.pm/packages/thoas) do:
+[jiffy](https://hex.pm/packages/jiffy) and [thoas](https://hex.pm/packages/thoas)
+do the following (prefix the command with `CXX=clang++` for using Clang C++
+compiler):
 ```
 $ make benchmark
 === Benchmark (file size: 616.7K) ===
