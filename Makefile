@@ -13,6 +13,9 @@ clean:
 test:
 	rebar3 eunit
 
+nif:
+	make -C c_src
+
 benchmark:
 	@rebar3 as test do get-deps, eunit
 

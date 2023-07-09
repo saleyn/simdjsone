@@ -7,7 +7,9 @@ defmodule Simdjsone.MixProject do
       version:         "0.1.1",
       elixir:          "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      deps:            deps()
+      elixirc_paths:   ["src"],
+      compilers:       [:priv] ++ Mix.compilers,
+      deps:            deps(),
     ]
   end
 
@@ -27,5 +29,43 @@ defmodule Simdjsone.MixProject do
       {:thoas,   "~> 1.0",   only: :test},
       {:poison,  "~> 5.0",   only: :test},
     ]
+  end
+end
+
+defmodule Mix.Tasks.Compile.Priv do
+  @moduledoc """
+  Compile the NIF library by running "make nif"
+  """
+  use Mix.Task.Compiler
+
+  @impl true
+  def run(_args) do
+    outdir = Keyword.get(Mix.Project.config(), :app_path, File.cwd!)
+
+    System.cmd("make", ["nif"], [env: [{"REBAR_BARE_COMPILER_OUTPUT_DIR", outdir}]])
+    |> elem(0)
+    |> IO.binwrite()
+  end
+
+  @impl true
+  def clean() do
+    System.cmd("make", ["clean"])
+    |> elem(0)
+    |> IO.binwrite()
+  end
+end
+
+defmodule Mix.Tasks.Bench do
+  use Mix.Task
+
+  ## Execute Erlang unit tests followed by Elixir benchmarks
+  @impl true
+  def run(args) do
+    System.cmd("make", ["test"])
+    |> elem(0)
+    |> IO.binwrite()
+
+    Mix.env(:test)
+    Mix.Task.run("test", args)
   end
 end
