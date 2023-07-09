@@ -4,7 +4,7 @@ defmodule Simdjsone.MixProject do
   def project do
     [
       app:             :simdjsone,
-      version:         "0.1.1",
+      version:         get_vsn(),
       elixir:          "~> 1.14",
       start_permanent: Mix.env() == :prod,
       elixirc_paths:   ["src"],
@@ -29,6 +29,25 @@ defmodule Simdjsone.MixProject do
       {:thoas,   "~> 1.0",   only: :test},
       {:poison,  "~> 5.0",   only: :test},
     ]
+  end
+
+  defp get_vsn() do
+    m =
+      __MODULE__
+      |> Atom.to_string()
+      |> String.split(".")
+      |> Enum.drop(1)
+      |> Enum.take(1)
+      |> hd()
+      |> String.downcase
+
+    "src/#{m}.app.src"
+    |> :file.consult()
+    |> elem(1)
+    |> hd()
+    |> elem(2)
+    |> Keyword.get(:vsn)
+    |> to_string()
   end
 end
 

@@ -98,7 +98,7 @@ $ make benchmark
        jiffy:      2.700us
        thoas:      2.510us
 ```
-If you have Elixir install, the project also includes a benchmark for the
+If you have Elixir installed, the project also includes a benchmark for the
 [jason](https://hex.pm/packages/jason) Elixir parser:
 ```
 $ make mix-benchmark
