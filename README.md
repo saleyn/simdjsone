@@ -16,7 +16,7 @@ Only a subset of functionality is implemented:
 - Ability to decode JSON terms using a main scheduler or a dirty scheduler
   based on the size of JSON binary input.
 - Ability to cache the decoded term, and access its key/value pairs using
-  a NIF based `get/2` function.
+  a NIF based `simdjson:get/2` function.
 - The resources stored in the cache will get automatically garbage collected
   when the owner process dies.
 

@@ -1,18 +1,18 @@
 %%%----------------------------------------------------------------------------
-%%% @file simdjson.erl
 %%% @doc  Fast decoding of JSON using simdjson C++ library.
-%%% @see  https://github.com/simdjson/simdjson
 %%%
 %%% By default JSON decoder uses the atom `null' to represent JSON nulls.
 %%% To modify this behavior, set the following configuration option to another
-%%% atom:
+%%% atom value (e.g. `nil' for Elixir):
 %%% ```
-%%% {simdjsone, [{null, MyNullAtom}]}.
-%%% ```
+%%% {simdjsone, [{null, nil}]}.
+%%% '''
+%%%
+%%% See also [https://github.com/simdjson/simdjson]
 %%% @end
 %%%----------------------------------------------------------------------------
 -module(simdjson).
--export([decode/1, parse/1, get/2]).
+-export([decode/1, parse/1, get/2, minify/1]).
 -compile({no_auto_import, [get/2]}).
 
 -on_load(init/0).
