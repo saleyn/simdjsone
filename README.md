@@ -104,8 +104,9 @@ $ make benchmark
        thoas:      2.510us
 ```
 If you have Elixir installed, the project also includes a benchmark for the
-[jason](https://hex.pm/packages/jason) Elixir parser.  The Elixir benchmarks
-are more exhaustive, and test performance using 1, 4, and 8 parallel processes:
+[jason](https://hex.pm/packages/jason) and
+[poison](https://hex.pm/packages/poison) Elixir parsers.  The Elixir benchmarks
+are more exhaustive:
 ```
 $ MIX_ENV=test make benchmark
 === Benchmark (file size: 616.7K) ===
