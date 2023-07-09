@@ -48,15 +48,12 @@ end
 
 **Erlang:**
 ```bash
-$ make deps
-$ make
-$ make test
+$ make deps compile
 ```
 
 **Elixir**
 ```bash
-$ mix deps.get
-$ mix compile
+$ MIX_ENV=dev make deps compile
 ```
 
 ## Simple JSON decoding
@@ -110,7 +107,7 @@ If you have Elixir installed, the project also includes a benchmark for the
 [jason](https://hex.pm/packages/jason) Elixir parser.  The Elixir benchmarks
 are more exhaustive, and test performance using 1, 4, and 8 parallel processes:
 ```
-$ mix benchmark
+$ MIX_ENV=test make benchmark
 === Benchmark (file size: 616.7K) ===
    simdjsone:   5654.500us
        jason:   8745.330us
