@@ -109,15 +109,36 @@ are more exhaustive, and test performance using 1, 4, and 8 parallel processes:
 ```
 $ MIX_ENV=test make benchmark
 === Benchmark (file size: 616.7K) ===
-   simdjsone:   5654.500us
-       jason:   8745.330us
-       thoas:   9052.840us
-       jiffy:  13916.590us
-=== Benchmark (file size: 1.3K) ===
-   simdjsone:      8.680us
-       jiffy:     14.490us
-       thoas:     15.410us
-       jason:     25.050us
+
+Name                ips        average  deviation         median         99th %
+simdjsone        248.59        4.02 ms    ±18.96%        4.23 ms        6.12 ms
+poison           156.55        6.39 ms    ±12.81%        6.16 ms       10.24 ms
+jason            152.47        6.56 ms    ±10.07%        6.36 ms        9.37 ms
+thaos            149.66        6.68 ms     ±7.21%        6.54 ms        8.86 ms
+jiffy             77.59       12.89 ms    ±15.90%       12.65 ms       20.51 ms
+
+Comparison:
+simdjsone        248.59
+poison           156.55 - 1.59x slower +2.37 ms
+jason            152.47 - 1.63x slower +2.54 ms
+thaos            149.66 - 1.66x slower +2.66 ms
+jiffy             77.59 - 3.20x slower +8.87 ms
+
+=== Benchmark (file size: 0.1K) ===
+
+Name                ips        average  deviation         median         99th %
+simdjsone      722.26 K        1.38 μs  ±2397.94%        1.10 μs        2.90 μs
+poison         599.24 K        1.67 μs  ±1414.38%        1.40 μs        3.80 μs
+thaos          500.98 K        2.00 μs   ±693.06%        1.70 μs        4.50 μs
+jason          437.20 K        2.29 μs   ±809.21%           2 μs        5.80 μs
+jiffy          315.95 K        3.17 μs   ±672.91%        2.60 μs        8.50 μs
+
+Comparison:
+simdjsone      722.26 K
+poison         599.24 K - 1.21x slower +0.28 μs
+thaos          500.98 K - 1.44x slower +0.61 μs
+jason          437.20 K - 1.65x slower +0.90 μs
+jiffy          315.95 K - 2.29x slower +1.78 μs
 ```
 
 ## TODO:
