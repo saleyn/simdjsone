@@ -46,9 +46,17 @@ end
 
 ## Build
 
+**Erlang:**
 ```bash
-$ rebar3 get-deps
-$ rebar3 compile
+$ make deps
+$ make
+$ make test
+```
+
+**Elixir**
+```bash
+$ mix deps.get
+$ mix compile
 ```
 
 ## Simple JSON decoding
@@ -99,9 +107,10 @@ $ make benchmark
        thoas:      2.510us
 ```
 If you have Elixir installed, the project also includes a benchmark for the
-[jason](https://hex.pm/packages/jason) Elixir parser:
+[jason](https://hex.pm/packages/jason) Elixir parser.  The Elixir benchmarks
+are more exhaustive, and test performance using 1, 4, and 8 parallel processes:
 ```
-$ make mix-benchmark
+$ mix benchmark
 === Benchmark (file size: 616.7K) ===
    simdjsone:   5654.500us
        jason:   8745.330us

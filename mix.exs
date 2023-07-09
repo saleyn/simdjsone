@@ -74,7 +74,7 @@ defmodule Mix.Tasks.Compile.Priv do
   end
 end
 
-defmodule Mix.Tasks.Bench do
+defmodule Mix.Tasks.Benchmark do
   use Mix.Task
 
   ## Execute Erlang unit tests followed by Elixir benchmarks

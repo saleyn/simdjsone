@@ -12,21 +12,33 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        container:
+          - erlang:25.3
+          - erlang:26.0
+          - elixir:1.14.5
+          - elixir:1.15.0
+
     container:
-      image: elixir:1.14.4
+      image: ${{ matrix.container }}
 
     steps:
     - uses: actions/checkout@v2
       with:
         # Checkout all history for all branches and tags
         fetch-depth: 0
-    - name: Install rebar3
-      run:  mix local.rebar --force
-    - name: Install hex
-      run:  mix local.hex --force
+    - name: Install rebar3 and hex
+      if:   ${{ contains(matrix.container, 'elixir') }}
+      run:  |
+        mix local.rebar --force
+        mix local.hex   --force
     - name: Compile
-      run:  make
-    - name: Compile
-      run:  mix do deps.get, deps.compile
+      run:  |
+        [ ${{ contains(matrix.container, 'elixir') }} = true ] && export MIX_ENV=test
+        make deps
+        make compile
     - name: Run tests
-      run:  mix bench
+      run:  |
+        [ ${{ contains(matrix.container, 'elixir') }} = true ] && export MIX_ENV=test
+        make benchmark
