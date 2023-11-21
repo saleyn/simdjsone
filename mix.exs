@@ -27,6 +27,7 @@ defmodule Simdjsone.MixProject do
       {:jiffy,   "~> 1.1.1", only: :test},
       {:jason,   "~> 1.4",   only: :test},
       {:thoas,   "~> 1.0",   only: :test},
+      {:euneus,  "~> 1.0",   only: :test},
       {:poison,  "~> 5.0",   only: :test},
     ]
   end

@@ -9,6 +9,7 @@ defmodule Simdjsone.Bench do
     f = fn(bin) ->
       %{
         "thaos"     => fn -> :thoas.decode(bin) end,
+        "euneus"    => fn -> :euneus.decode(bin) end,
         "jason"     => fn -> Jason.decode(bin) end,
         "jiffy"     => fn -> :jiffy.decode(bin, [:return_maps]) end,
         "poison"    => fn -> Poison.decode!(bin) end,

@@ -135,16 +135,20 @@ benchmark(N, Bin, NameFuns) ->
   L = [
     {"simdjsone", fun(B) -> simdjson:decode(B)             end},
     {"jiffy",     fun(B) -> jiffy:decode(B, [return_maps]) end},
-    {"thoas",     fun(B) -> {ok, R} = thoas:decode(B), R   end}
+    {"thoas",     fun(B) -> {ok, R} = thoas:decode(B),  R  end},
+    {"euneus",    fun(B) -> {ok, R} = euneus:decode(B), R  end}
   ] ++ NameFuns,
 
   Tasks = [{Name, spawn(fun() ->
               erlang:garbage_collect(),
-              print(Name, tc(N, fun() -> Fun(Bin) end)), P ! 1
+              P ! {Name, tc(N, fun() -> Fun(Bin) end)}
             end)} || {Name, Fun} <- L],
 
   K = length(Tasks),
-  K = lists:sum([receive I -> I after 15000 -> {Nm, timeout} end || {Nm, _} <- Tasks]),
+  R = [receive Msg -> {ok, Msg} after 15000 -> {error, timeout} end || _ <- Tasks],
+  M = lists:sort(fun({_, {T1, _}}, {_, {T2, _}}) -> T1 =< T2 end, [X || {ok, X} <- R]),
+  [print(Nm, {T, S}) || {Nm, {T, S}} <- M],
+  K = length(M),
   ok.
 
 print(Fmt, {T, R}) ->
