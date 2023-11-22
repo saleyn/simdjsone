@@ -140,7 +140,6 @@ benchmark(N, Bin, NameFuns) ->
   ] ++ NameFuns,
 
   Tasks = [{Name, spawn(fun() ->
-              erlang:garbage_collect(),
               P ! {Name, tc(N, fun() -> Fun(Bin) end)}
             end)} || {Name, Fun} <- L],
 
