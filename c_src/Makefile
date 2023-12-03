@@ -19,20 +19,6 @@ endif
 
 CXX       ?= g++
 CXX_VSN   ?= $(shell $(CXX) --version | sed -n '1s/^[^0-9]\+\([0-9]\+\)\(.[0-9-]\)\+.*$$/\1/p')
-BASE_CXX  := $(basename $(CXX))
-
-ifeq ($(BASE_CXX),g++)
-  ifeq ($(shell expr $(CXX_VSN) \>= 13),1)
-    C20_FEATURES=1
-  endif
-else ifeq ($(BASE_CXX),clang++)
-  ifeq ($(shell expr $(CXX_VSN) \>= 15),1)
-    C20_FEATURES=1
-  endif
-endif
-
-HAVE_FORMAT ?= $(C20_FEATURES)
-HAVE_SRCLOC ?= $(C20_FEATURES)
 
 ifeq ($(NIF_DEBUG),0)
   OPTIMIZE  = -O3 -DNDEBUG
