@@ -5,30 +5,30 @@
 #include <cstring>
 #include <vector>
 #include <cassert>
+#include <set>
+#include <string>
 #include <string.h>
-#include <erl_nif.h>
 
-#include "simdjson.h"
+#include "simdjson_atoms.hpp"
+#include "simdjson_encoder.hpp"
+
 using namespace simdjson;
 
 static constexpr const size_t BYTES_PER_REDUCTION = 20;
 static constexpr const size_t ERL_REDUCTION_COUNT = 2000;
 static constexpr const size_t TIMESLICE_BYTES     = ERL_REDUCTION_COUNT * BYTES_PER_REDUCTION / 2;
 
-static ErlNifResourceType* JSON_RESOURCE;
+struct DecodeOpts {
+  DecodeOpts()
+  : return_maps(true)
+  , null_term(am_null)
+  , dedupe_keys(false)
+  {}
 
-static ERL_NIF_TERM ATOM_OK;
-static ERL_NIF_TERM ATOM_ERROR;
-static ERL_NIF_TERM ATOM_TRUE;
-static ERL_NIF_TERM ATOM_FALSE;
-static ERL_NIF_TERM ATOM_NULL;
-static ERL_NIF_TERM ATOM_NIL;
-static ERL_NIF_TERM ATOM_ENOMEM;
-static ERL_NIF_TERM ATOM_ENOPROCESS;
-static ERL_NIF_TERM ATOM_ENOCALLBACK;
-static ERL_NIF_TERM ATOM_DUP_KEYS_FOUND;
-
-static ERL_NIF_TERM am_null;
+  bool          return_maps;
+  ERL_NIF_TERM  null_term;
+  bool          dedupe_keys;
+};
 
 struct DeadProcError : public std::exception {};
 
@@ -47,31 +47,66 @@ static ERL_NIF_TERM make_binary(ErlNifEnv* env, std::string_view const& str)
   return term;
 }
 
-static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm)
+static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const DecodeOpts& opts)
 {
   if (!enif_is_current_process_alive(env)) [[unlikely]]
     throw DeadProcError();
 
   switch(elm.type()) {
     case dom::element_type::OBJECT: {
-      auto obj = dom::object(elm);
-      int  i   = 0;
-      std::vector<ERL_NIF_TERM> ks(obj.size());
-      std::vector<ERL_NIF_TERM> vs(obj.size());
-      for(auto field : obj) {
-        ks.at(i)   = make_binary(env, field.key);
-        vs.at(i++) = make_term(env, field.value);
+      auto   obj = dom::object(elm);
+      size_t i   = 0;
+      if (opts.return_maps) {
+        std::vector<ERL_NIF_TERM> ks(obj.size());
+        std::vector<ERL_NIF_TERM> vs(obj.size());
+
+        if (opts.dedupe_keys) {
+          std::set<std::string_view> seen;
+          for(auto field : obj) {
+            auto [_, inserted] = seen.emplace(field.key);
+            if (inserted) [[likely]] {
+              ks.at(i)   = make_binary(env, field.key);
+              vs.at(i++) = make_term(env, field.value, opts);
+            }
+          }
+          if (i != obj.size()) [[unlikely]] {
+            ks.resize(i);
+            vs.resize(i);
+          }
+        } else {
+          for(auto field : obj) {
+            ks.at(i)   = make_binary(env, field.key);
+            vs.at(i++) = make_term(env, field.value, opts);
+          }
+        }
+
+        ERL_NIF_TERM m;
+        return enif_make_map_from_arrays(env, ks.data(), vs.data(), ks.size(), &m)
+            ? m : enif_raise_exception(env, ATOM_DUP_KEYS_FOUND);
+      } else {
+        std::vector<ERL_NIF_TERM> items(obj.size());
+        if (opts.dedupe_keys) {
+          std::set<std::string_view> seen;
+          for(auto field : obj) {
+            auto [_, inserted] = seen.emplace(field.key);
+            if (inserted) [[likely]]
+              items.at(i++) = enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts));
+          }
+          if (i != obj.size()) [[unlikely]]
+            items.resize(i);
+        } else {
+          for(auto field : obj)
+            items.at(i++) = enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts));
+        }
+        return enif_make_tuple1(env, enif_make_list_from_array(env, items.data(), items.size()));
       }
-      ERL_NIF_TERM m;
-      return enif_make_map_from_arrays(env, ks.data(), vs.data(), ks.size(), &m)
-           ? m : enif_raise_exception(env, ATOM_DUP_KEYS_FOUND);
     }
     case dom::element_type::ARRAY: {
       auto array = dom::array(elm);
       int  i     = 0;
       std::vector<ERL_NIF_TERM> cs(array.size());
       for(dom::element c : array)
-        cs.at(i++) = make_term(env, c);
+        cs.at(i++) = make_term(env, c, opts);
       return enif_make_list_from_array(env, cs.data(), cs.size());
     }
     case dom::element_type::STRING: {
@@ -81,12 +116,12 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm)
       memcpy(bin.data, str.data(), str.length());
       return enif_make_binary(env, &bin);
     }
-    case dom::element_type::INT64:      return enif_make_long(env, int64_t(elm));
+    case dom::element_type::INT64:      return enif_make_long(env,  int64_t(elm));
     case dom::element_type::UINT64:     return enif_make_ulong(env, uint64_t(elm));
     case dom::element_type::DOUBLE:     return enif_make_double(env, elm);
     case dom::element_type::BOOL:       return elm.get<bool>() ? ATOM_TRUE : ATOM_FALSE;
     case dom::element_type::NULL_VALUE:
-    default:                            return am_null;
+    default:                            return opts.null_term;
   }
 }
 
@@ -127,12 +162,40 @@ static ERL_NIF_TERM error_reason(ErlNifEnv* env, error_code err)
   }
 }
 
-static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin)
+static ERL_NIF_TERM parse_opts(ErlNifEnv* env, ERL_NIF_TERM options, DecodeOpts& opts)
+{
+  ERL_NIF_TERM head = options, null_term = am_null;
+  const ERL_NIF_TERM* array;
+  int arity;
+
+  while (enif_get_list_cell(env, options, &head, &options)) {
+    if (enif_is_identical(head, ATOM_RETURN_MAPS))
+      opts.return_maps = true;
+    else if (enif_is_identical(head, ATOM_OBJECT_AS_TUPLE))
+      opts.return_maps = false;
+    else if (enif_is_identical(head, ATOM_USE_NIL))
+      null_term = ATOM_NIL;
+    else if (enif_is_identical(head, ATOM_DEDUPE_KEYS))
+      opts.dedupe_keys = true;
+    else if (!enif_get_tuple(env, head, &arity, &array) || arity != 2)
+      return enif_raise_exception(env, enif_make_tuple2(env, ATOM_BADARG, head));
+    else if (enif_is_identical(array[0], ATOM_NULL_TERM))
+      null_term = array[1];
+    else
+      return enif_raise_exception(env, enif_make_tuple2(env, ATOM_BADARG, head));
+  }
+
+  opts.null_term = null_term;
+
+  return ATOM_OK;
+}
+
+static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin, const DecodeOpts& opts)
 {
   try {
     dom::parser parser;
     dom::element elm = parser.parse(reinterpret_cast<const char*>(bin.data), bin.size);
-    return make_term(env, elm);
+    return make_term(env, elm, opts);
   } catch (simdjson_error const& error) {
     auto msg = enif_make_string(env, error.what(), ERL_NIF_LATIN1);
     return enif_raise_exception(env, msg);
@@ -149,7 +212,9 @@ static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
   assert(res);
 
-  return decode(env, bin);
+  DecodeOpts opts;
+  auto   r =  argc > 1 ? parse_opts(env, argv[1], opts) : ATOM_OK;
+  return r == ATOM_OK  ? decode(env, bin, opts)         : r;
 }
 
 /*
@@ -181,33 +246,40 @@ static bool consume_timeslice(ErlNifEnv* env, uint64_t start_time = 0) {
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   ErlNifBinary bin;
-  ERL_NIF_TERM args[1];
+  ERL_NIF_TERM args[2];
+  static ERL_NIF_TERM s_nil_list = enif_make_list(env, 0);
 
-  if (argc != 1) [[unlikely]]
-    return enif_make_badarg(env);
+  assert(argc >= 1 && argc <= 2);
 
   if (enif_inspect_binary(env, argv[0], &bin)) [[likely]] {
     if (bin.size < TIMESLICE_BYTES)
-      return decode(env, bin);
+      goto CALL_DECODE;
 
     args[0] = argv[0];
+    args[1] = argc > 1 ? argv[1] : s_nil_list;
   }
   else if (!enif_inspect_iolist_as_binary(env, argv[0], &bin)) [[unlikely]]
     return enif_make_badarg(env);
   else if (bin.size < TIMESLICE_BYTES)
-    return decode(env, bin);
-  else
+    goto CALL_DECODE;
+  else {
     args[0] = enif_make_binary(env, &bin);
+    args[1] = argc > 1 ? argv[1] : s_nil_list;
+  }
 
   return enif_schedule_nif(env, "simdjson_decode",
                            ERL_NIF_DIRTY_JOB_CPU_BOUND, decode_dirty, argc, args);
+CALL_DECODE:
+  DecodeOpts opts;
+  auto res = parse_opts(env, argv[1], opts);
+  return res == ATOM_OK ? decode(env, bin, opts) : res;
 }
 
 static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   ErlNifBinary bin;
   if (!enif_inspect_binary(env, argv[0], &bin) &&
-      !enif_inspect_iolist_as_binary(env, argv[0], &bin))
+      !enif_inspect_iolist_as_binary(env, argv[0], &bin)) [[unlikely]]
     return enif_make_badarg(env);
 
   ErlNifPid pid;
@@ -253,15 +325,24 @@ static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   dom::document* doc;
-  if (argc != 2 || !enif_get_resource(env, argv[0], JSON_RESOURCE, (void**)&doc)) [[unlikely]]
+  assert(argc == 2 || argc == 3);
+
+  if (!enif_get_resource(env, argv[0], JSON_RESOURCE, (void**)&doc)) [[unlikely]]
     return enif_make_badarg(env);
 
   //fprintf(stderr, "--> AT %p\r\n", root);
 
   ErlNifBinary res;
   if(!enif_inspect_binary(env, argv[1], &res) &&
-     !enif_inspect_iolist_as_binary(env, argv[1], &res))
+     !enif_inspect_iolist_as_binary(env, argv[1], &res)) [[unlikely]]
     return enif_make_badarg(env);
+
+  DecodeOpts opts;
+  if (argc == 3) {
+    auto res  = parse_opts(env, argv[2], opts);
+    if  (res != ATOM_OK) [[unlikely]]
+      return res;
+  }
 
   auto path = std::string_view((char *)res.data, res.size);
   auto elm  = doc->root().at_pointer(path);
@@ -270,7 +351,7 @@ static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_string(env, error_message(elm.error()), ERL_NIF_LATIN1);
 
   try {
-    return make_term(env, elm.value_unsafe());
+    return make_term(env, elm.value_unsafe(), opts);
   } catch (DeadProcError const&) {
     return enif_raise_exception(env, ATOM_ENOPROCESS);
   }
@@ -308,7 +389,7 @@ static ERL_NIF_TERM minify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
   if (enif_inspect_binary(env, argv[0], &bin)) [[likely]] {
     if (bin.size < TIMESLICE_BYTES)
-      return decode(env, bin);
+      return minify(env, bin);
 
     args[0] = argv[0];
   }
@@ -342,23 +423,38 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     return -1;
   }
 
-  auto flags          = (ErlNifResourceFlags)(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER);
+  auto flags             = (ErlNifResourceFlags)(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER);
   ErlNifResourceTypeInit rti{0};
-  rti.dtor            = &resource_dtor;
-  rti.down            = &resource_down;
-  JSON_RESOURCE       = enif_open_resource_type_x(env, "simjson_resource",
-                                                  &rti, flags, nullptr);
-  ATOM_OK             = enif_make_atom(env, "ok");
-  ATOM_ERROR          = enif_make_atom(env, "error");
-  ATOM_TRUE           = enif_make_atom(env, "true");
-  ATOM_FALSE          = enif_make_atom(env, "false");
-  ATOM_NIL            = enif_make_atom(env, "nil");
-  ATOM_NULL           = enif_make_atom(env, "null");
-  am_null             = ATOM_NULL;
-  ATOM_ENOMEM         = enif_make_atom(env, "enomem");
-  ATOM_ENOPROCESS     = enif_make_atom(env, "enoprocess");
-  ATOM_ENOCALLBACK    = enif_make_atom(env, "enocallback");
-  ATOM_DUP_KEYS_FOUND = enif_make_atom(env, "dup_keys_found");
+  rti.dtor               = &resource_dtor;
+  rti.down               = &resource_down;
+  JSON_RESOURCE          = enif_open_resource_type_x(env, "simjson_resource",
+                                                     &rti, flags, nullptr);
+  ATOM_OK                = enif_make_atom(env, "ok");
+  ATOM_ERROR             = enif_make_atom(env, "error");
+  ATOM_TRUE              = enif_make_atom(env, "true");
+  ATOM_FALSE             = enif_make_atom(env, "false");
+  ATOM_BADARG            = enif_make_atom(env, "badarg");
+  ATOM_NIL               = enif_make_atom(env, "nil");
+  ATOM_NULL              = enif_make_atom(env, "null");
+  am_null                = ATOM_NULL;
+  ATOM_ENOMEM            = enif_make_atom(env, "enomem");
+  ATOM_ENOPROCESS        = enif_make_atom(env, "enoprocess");
+  ATOM_ENOCALLBACK       = enif_make_atom(env, "enocallback");
+  ATOM_DUP_KEYS_FOUND    = enif_make_atom(env, "dup_keys_found");
+
+  ATOM_RETURN_MAPS       = enif_make_atom(env, "return_maps");
+  ATOM_OBJECT_AS_TUPLE   = enif_make_atom(env, "object_as_tuple");
+  ATOM_USE_NIL           = enif_make_atom(env, "use_nil");
+  ATOM_NULL_TERM         = enif_make_atom(env, "null_term");
+  ATOM_DEDUPE_KEYS       = enif_make_atom(env, "dedupe_keys");
+
+  ATOM_UESCAPE           = enif_make_atom(env, "uescape");
+  ATOM_PRETTY            = enif_make_atom(env, "pretty");
+  ATOM_ESCAPE_FWD_SLASH  = enif_make_atom(env, "escape_fwd_slash");
+  ATOM_FORCE_UTF8        = enif_make_atom(env, "force_utf8");
+  ATOM_BYTES_PER_RED     = enif_make_atom(env, "bytes_per_red");
+  ATOM_ITER              = enif_make_atom(env, "iter");
+  ATOM_PARTIAL           = enif_make_atom(env, "partial");
 
   int   arity;
   const ERL_NIF_TERM* tagval;
@@ -374,6 +470,27 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
       am_null = tagval[1];
   }
 
+  jiffy_st* st = reinterpret_cast<jiffy_st*>(enif_alloc(sizeof(jiffy_st)));
+  if(st == NULL) [[unlikely]] {
+    fprintf(stderr, "Failed to allocate %lu bytes\r\n", sizeof(jiffy_st));
+    return 1;
+  }
+
+  // Markers used in encoding
+  st->ref_object = make_atom(env, "$object_ref$");
+  st->ref_array  = make_atom(env, "$array_ref$");
+
+  st->res_enc = enif_open_resource_type(
+    env,
+    NULL,
+    "encoder",
+    enc_destroy,
+    ErlNifResourceFlags(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER),
+    NULL
+  );
+
+  *priv_data = static_cast<void*>(st);
+
   return 0;
 }
 
@@ -384,10 +501,14 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_N
 }
 
 static ErlNifFunc funcs[] = {
-  {"decode", 1, decode_nif},
-  {"parse",  1, parse_nif},
-  {"get",    2, get_nif},
-  {"minify", 1, minify_nif},
+  {"decode",      1, decode_nif},
+  {"decode",      2, decode_nif},
+  {"parse",       1, parse_nif},
+  {"get",         2, get_nif},
+  {"get",         3, get_nif},
+  {"minify",      1, minify_nif},
+  {"encode_init", 2, encode_init},
+  {"encode_iter", 3, encode_iter},
 };
 
 ERL_NIF_INIT(simdjson, funcs, load, nullptr, upgrade, nullptr);

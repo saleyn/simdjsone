@@ -6,8 +6,8 @@ An implementation of the fastest JSON parser for Erlang/Elixir using the C++
 [simdjson](https://github.com/simdjson/simdjson) NIF library. The decoding speed
 of this parser is about 2.5 times faster than `jiffy`.
 
-**NOTE**: The library currently doen't have a JSON encoder, it is only focused
-on fast JSON parsing.
+**NOTE**: Since the simdjson library currently doen't have an implementation of
+a JSON encoder, the encoding implementation is taken from jiffy.
 
 See [full documentation](https://simdjson.github.io/simdjson/index.html) of the C++ library.
 
@@ -23,6 +23,30 @@ Only a subset of functionality is implemented:
 For small JSON objects `simdjsone` is about twice faster than
 [jiffy](https://github.com/davisp/jiffy) and for large JSON objects, it's about
 30% faster than `jiffy`.
+
+### Decoding ###
+
+The following decoding options are supported in `decode(String, Options)`:
+
+- `return_maps`        - decode JSON object as map (this is default)
+- `object_as_tuple`    - decode JSON object as a proplist wrapped in a tuple
+- `dedup_keys`         - eliminate duplicate keys from a JSON object
+- `use_nil`            - decode JSON "null" as `nil`
+- `{null_term, V}`     - use the given value `V` for a JSON "null"
+
+### Encoding ###
+
+The following decoding options are supported in `encode(String, Options)`:
+
+- `uescape`            - escape UTF-8 sequences to produce a 7-bit clean output
+- `pretty`             - return JSON using two-space indentation
+- `use_nil`            - encode the atom `nil` as `null`
+- `escape_fwd_slash`   - escape the `/` character (useful when encoding URLs)
+- `{bytes_per_red, N}` - where `N` >= 0 - This controls the number of bytes
+  that Jiffy will process as an equivalent to a reduction. Each 20 reductions we
+  consume 1% of our allocated time slice for the current process. When the
+  Erlang VM indicates we need to return from the NIF.
+
 
 ## Author
 

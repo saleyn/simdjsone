@@ -12,7 +12,7 @@
 %%% @end
 %%%----------------------------------------------------------------------------
 -module(simdjson).
--export([decode/1, parse/1, get/2, minify/1]).
+-export([decode/1, decode/2, parse/1, get/2, get/3, minify/1, encode/1, encode/2]).
 -compile({no_auto_import, [get/2]}).
 
 -on_load(init/0).
@@ -20,6 +20,46 @@
 -define(LIBNAME, simdjsone).
 -define(NOT_LOADED_ERROR,
   erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, ?LINE}]})).
+
+-type decode_opt() ::
+  return_maps     |
+  object_as_tuple |
+  dedupe_keys     |
+  use_nil         |
+  {null_term, atom()}.
+
+-type decode_opts() :: [decode_opt()].
+%% Decode options:
+%% <ul>
+%% <li>`return_maps'     - decode JSON object as map</li>
+%% <li>`object_as_tuple' - decode JSON object as a proplist wrapped in a tuple</li>
+%% <li>`dedup_keys'      - eliminate duplicate keys from a JSON object</li>
+%% <li>`use_nil'         - decode JSON "null" as `nil'</li>
+%% <li>`{null_term, V}'  - use the given value `V' for a JSON "null"</li>
+%% </ul>
+
+-type encode_opt() ::
+  uescape                |
+  pretty                 |
+  force_utf8             |
+  use_nil                |
+  escape_forward_slashes |
+  {bytes_per_red, non_neg_integer()}.
+
+-type encode_opts() :: [encode_opt()].
+%% Encode options:
+%% <ul>
+%% <li>`uescape`            - escape UTF-8 sequences to produce a 7-bit clean output</li>
+%% <li>`pretty`             - return JSON using two-space indentation</li>
+%% <li>`use_nil`            - encode the atom `nil` as `null`</li>
+%% <li>`escape_fwd_slash`   - escape the `/` character (useful when encoding URLs)</li>
+%% <li>`{bytes_per_red, N}` - where `N` >= 0 - This controls the number of bytes
+%% that Jiffy will process as an equivalent to a reduction. Each 20 reductions we
+%% consume 1% of our allocated time slice for the current process. When the
+%% Erlang VM indicates we need to return from the NIF.</li>
+%% </ul>
+
+-export_type([decode_opts/0, encode_opts/0]).
 
 -ifdef(TEST).
 -export([benchmark/1, benchmark/2]).
@@ -49,6 +89,11 @@ init() ->
 decode(_BinOrRef) ->
   ?NOT_LOADED_ERROR.
 
+%% @doc Decode a JSON string or binary to a term representation of JSON.
+-spec decode(binary()|list()|reference(), decode_opts()) -> term().
+decode(_BinOrRef, _Opts) ->
+  ?NOT_LOADED_ERROR.
+
 %% @doc Parse a JSON string or binary and save it in a resource for later access by `get/2'.
 %% Returns a resource reference owned by the calling pid.
 -spec parse(binary()) -> reference().
@@ -62,12 +107,88 @@ parse(_Bin) ->
 get(_Ref, Path) when is_binary(Path) ->
   ?NOT_LOADED_ERROR.
 
+%% @doc Find a given `Path' (which must start with a slash) in the JSON resource.
+%% The resource reference must have been previously created by calling
+%% `parse/1,2'.
+-spec get(reference(), binary(), decode_opts()) -> term().
+get(_Ref, Path, _Opts) when is_binary(Path) ->
+  ?NOT_LOADED_ERROR.
+
 %% @doc Minify a JSON string or binary.
 -spec minify(binary()|list()) -> {ok, binary()} | {error, binary()}.
 minify(_BinOrStr) ->
   ?NOT_LOADED_ERROR.
 
+%% @doc Encode a term to a JSON string.
+-spec encode(term()) -> iodata().
+encode(Data) ->
+  encode(Data, []).
+
+-spec encode(term(), encode_opts()) -> iodata().
+encode(Data, Opts) ->
+  encode_loop(fun() -> encode_init(Data, Opts) end).
+
+encode_loop(Fun) ->
+  case Fun() of
+    {error, Error} ->
+      error(Error);
+    {partial, IOData} ->
+      finish_encode(IOData, []);
+    {iter, {NewEncoder, NewStack, NewIOBuf}} ->
+      encode_loop(fun() -> encode_iter(NewEncoder, NewStack, NewIOBuf) end);
+    [Bin] when is_binary(Bin) ->
+      Bin;
+    RevIOData when is_list(RevIOData) ->
+      lists:reverse(RevIOData)
+  end.
+
+encode_init(_Data, _Opts) ->
+  ?NOT_LOADED_ERROR.
+
+encode_iter(_Encoder, _Stack, _IOBuf) ->
+  ?NOT_LOADED_ERROR.
+
+finish_encode([], Acc) ->
+  %% No reverse! The NIF returned us
+  %% the pieces in reverse order.
+  Acc;
+finish_encode([<<_/binary>>=B | Rest], Acc) ->
+  finish_encode(Rest, [B | Acc]);
+finish_encode([Val | Rest], Acc) when is_integer(Val) ->
+  Bin = list_to_binary(integer_to_list(Val)),
+  finish_encode(Rest, [Bin | Acc]);
+finish_encode([InvalidEjson | _], _) ->
+  error({invalid_ejson, InvalidEjson});
+finish_encode(_, _) ->
+  error(invalid_ejson).
+
+
 -ifdef(EUNIT).
+
+encode_test_() ->
+  [
+    ?_assertEqual(<<"null">>, encode(null)),
+    ?_assertEqual(<<"null">>, encode(null, [use_nil])),
+    ?_assertEqual(<<"null">>, encode(nil,  [use_nil])),
+    ?_assertEqual(<<"{\"a\":1}">>, encode(#{a => 1})),
+    ?_assertEqual(<<"[1000,\"a\"]">>, encode([1000, <<"a">>])),
+
+    fun() -> ok end
+  ].
+
+decode_test_() ->
+  [
+    ?_assertEqual([1,2,3],                       decode("[1,2,3]")),
+    ?_assertEqual(#{<<"a">> => 1,<<"b">> => 2},  decode("{\"a\": 1, \"b\": 2}")),
+    ?_assertEqual({[{<<"a">>, 1},{<<"b">>, 2}]}, decode("{\"a\": 1, \"b\": 2}", [object_as_tuple])),
+    ?_assertEqual({[{<<"a">>, 1},{<<"a">>, 2}]}, decode("{\"a\": 1, \"a\": 2}", [object_as_tuple])),
+    ?_assertEqual({[{<<"a">>, 1}]},              decode("{\"a\": 1, \"a\": 2}", [object_as_tuple, dedupe_keys])),
+    ?_assertEqual(#{<<"a">> => 1},               decode("{\"a\": 1, \"a\": 2}", [dedupe_keys])),
+    ?_assertException(error, dup_keys_found,     decode("{\"a\": 1, \"a\": 2}")),
+    ?_assertEqual(null,                          decode("null")),
+    ?_assertEqual(nil,                           decode("null", [use_nil])),
+    ?_assertEqual(null_atom,                     decode("null", [{null_term, null_atom}]))
+  ].
 
 cached_decode_test_() ->
   {setup,
@@ -76,8 +197,6 @@ cached_decode_test_() ->
     end,
     fun(Ref) ->
       [
-        ?_assertEqual([1,2,3], decode("[1,2,3]")),
-        ?_assertEqual(#{<<"a">> => 1,<<"b">> => 2}, decode("{\"a\": 1, \"b\": 2}")),
         ?_assertEqual([1,2,3], get(Ref, "/c/c")),
         ?_assertEqual(1, get(Ref, "/c/c/0"))
       ]
