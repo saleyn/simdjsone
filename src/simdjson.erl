@@ -49,11 +49,11 @@
 -type encode_opts() :: [encode_opt()].
 %% Encode options:
 %% <ul>
-%% <li>`uescape`            - escape UTF-8 sequences to produce a 7-bit clean output</li>
-%% <li>`pretty`             - return JSON using two-space indentation</li>
-%% <li>`use_nil`            - encode the atom `nil` as `null`</li>
-%% <li>`escape_fwd_slash`   - escape the `/` character (useful when encoding URLs)</li>
-%% <li>`{bytes_per_red, N}` - where `N` >= 0 - This controls the number of bytes
+%% <li>`uescape'            - escape UTF-8 sequences to produce a 7-bit clean output</li>
+%% <li>`pretty'             - return JSON using two-space indentation</li>
+%% <li>`use_nil'            - encode the atom `nil' as `null`</li>
+%% <li>`escape_fwd_slash'   - escape the `/' character (useful when encoding URLs)</li>
+%% <li>`{bytes_per_red, N}' - where `N' >= 0 - This controls the number of bytes
 %% that Jiffy will process as an equivalent to a reduction. Each 20 reductions we
 %% consume 1% of our allocated time slice for the current process. When the
 %% Erlang VM indicates we need to return from the NIF.</li>

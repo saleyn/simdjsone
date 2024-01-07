@@ -104,6 +104,13 @@ returns the value stored in a given path:
 ok
 ```
 
+## JSON encoding
+
+```erlang
+1> simdjson:encode(#{<<"a">> => [1,2,3], <<"b">> => 123, <<"c">> => 12.234}).
+<<"{\"c\":12.234,\"b\":123,\"a\":[1,2,3]}">>
+```
+
 ## Performance Benchmark
 
 To run the performance benchmark of `simdjsone` against
