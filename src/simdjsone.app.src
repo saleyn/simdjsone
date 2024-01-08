@@ -1,6 +1,6 @@
 {application,simdjsone,
              [{description,"Fast Erlang JSON decoder based on the C++ simdjson library"},
-              {vsn,"0.2.0"},
+              {vsn,"0.2.1"},
               {registered,[]},
               {modules,[]},
               {env,[]},

@@ -6,9 +6,6 @@ An implementation of the fastest JSON parser for Erlang/Elixir using the C++
 [simdjson](https://github.com/simdjson/simdjson) NIF library. The decoding speed
 of this parser is about 2.5 times faster than `jiffy`.
 
-**NOTE**: Since the simdjson library currently doen't have an implementation of
-a JSON encoder, the encoding implementation is taken from jiffy.
-
 See [full documentation](https://simdjson.github.io/simdjson/index.html) of the C++ library.
 
 Only a subset of functionality is implemented:
@@ -24,7 +21,7 @@ For small JSON objects `simdjsone` is about twice faster than
 [jiffy](https://github.com/davisp/jiffy) and for large JSON objects, it's about
 30% faster than `jiffy`.
 
-### Decoding ###
+### Decoding
 
 The following decoding options are supported in `decode(String, Options)`:
 
@@ -34,7 +31,7 @@ The following decoding options are supported in `decode(String, Options)`:
 - `use_nil`            - decode JSON "null" as `nil`
 - `{null_term, V}`     - use the given value `V` for a JSON "null"
 
-### Encoding ###
+### Encoding
 
 The following decoding options are supported in `encode(String, Options)`:
 
@@ -47,6 +44,13 @@ The following decoding options are supported in `encode(String, Options)`:
   consume 1% of our allocated time slice for the current process. When the
   Erlang VM indicates we need to return from the NIF.
 
+**NOTE**: Since the simdjson library currently doen't have an implementation of
+a JSON encoder, the encoding implementation is the jiffy's modified encoder
+optimized for encoding integers.
+
+The implementation includes `simdjson:int_to_bin/1` function that is about 30%
+faster than `erlang:integer_to_binary/1`, but it's limited to integers in range:
+`(-1 bsl 63) <= I <= (1 bsl 62)`.
 
 ## Author
 
@@ -64,7 +68,7 @@ Erlang (`rebar.config`):
 Elixir (`mix.exs`):
 ```elixir
 def deps() do
-  [{:simdjsone, "~> 0.1"}]
+  [{:simdjsone, "~> 0.2"}]
 end
 ```
 
@@ -107,8 +111,10 @@ ok
 ## JSON encoding
 
 ```erlang
-1> simdjson:encode(#{<<"a">> => [1,2,3], <<"b">> => 123, <<"c">> => 12.234}).
-<<"{\"c\":12.234,\"b\":123,\"a\":[1,2,3]}">>
+1> simdjson:encode(#{a => [1,2,3], <<"b">> => 123, c => 12.234}).
+<<"{\"b\":123,\"a\":[1,2,3],\"c\":12.234}">>
+2> simdjson:encode({[{a, [1,2,3]}, {<<"b">>, 123}, {c, 12.234}]}).
+<<"{\"a\":[1,2,3],\"b\":123,\"c\":12.234}">>
 ```
 
 ## Performance Benchmark
