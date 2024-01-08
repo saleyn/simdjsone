@@ -128,16 +128,25 @@ encode(Data) ->
 
 -spec encode(term(), encode_opts()) -> iodata().
 encode(Data, Opts) ->
-  encode_loop(fun() -> encode_init(Data, Opts) end).
+  ForceUTF8 = lists:member(force_utf8, Opts),
+  encode_loop(fun() -> encode_init(Data, Opts) end, {ForceUTF8, Data, Opts}).
 
-encode_loop(Fun) ->
+encode_loop(Fun, {ForceUTF8, _Data, _Opts} = State) ->
   case Fun() of
+    {error, {invalid_string, _}} when ForceUTF8 ->
+      {_ForceUTF8, Data, Opts} = State,
+      FixedData = simdjson_utf8:fix(Data),
+      encode(FixedData, Opts -- [force_utf8]);
+    {error, {invalid_object_member_key, _}} when ForceUTF8 ->
+      {_ForceUTF8, Data, Opts} = State,
+      FixedData = simdjson_utf8:fix(Data),
+      encode(FixedData, Opts -- [force_utf8]);
     {error, Error} ->
       error(Error);
     {partial, IOData} ->
       finish_encode(IOData, []);
     {iter, {NewEncoder, NewStack, NewIOBuf}} ->
-      encode_loop(fun() -> encode_iter(NewEncoder, NewStack, NewIOBuf) end);
+      encode_loop(fun() -> encode_iter(NewEncoder, NewStack, NewIOBuf) end, State);
     [Bin] when is_binary(Bin) ->
       Bin;
     RevIOData when is_list(RevIOData) ->

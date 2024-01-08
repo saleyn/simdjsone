@@ -182,13 +182,13 @@ make_atom(ErlNifEnv* env, const char* name)
 ERL_NIF_TERM
 make_ok(jiffy_st* st, ErlNifEnv* env, ERL_NIF_TERM value)
 {
-    return enif_make_tuple2(env, ATOM_OK, value);
+    return enif_make_tuple2(env, AM_OK, value);
 }
 
 ERL_NIF_TERM
 make_error(jiffy_st* st, ErlNifEnv* env, const char* error)
 {
-    return enif_make_tuple2(env, ATOM_ERROR, make_atom(env, error));
+    return enif_make_tuple2(env, AM_ERROR, make_atom(env, error));
 }
 
 ERL_NIF_TERM
@@ -202,7 +202,7 @@ make_obj_error(jiffy_st* st, ErlNifEnv* env,
         const char* error, ERL_NIF_TERM obj)
 {
     ERL_NIF_TERM reason = enif_make_tuple2(env, make_atom(env, error), obj);
-    return enif_make_tuple2(env, ATOM_ERROR, reason);
+    return enif_make_tuple2(env, AM_ERROR, reason);
 }
 
 static const unsigned char hexvals[256] = {
@@ -570,7 +570,7 @@ ERL_NIF_TERM
 enc_error_info(Encoder* e, const char* msg, int line)
 {
     return enif_make_tuple2(e->env,
-        ATOM_ERROR,
+        AM_ERROR,
         enif_make_tuple2(e->env, make_atom(e->env, msg), enif_make_int(e->env, line)));
 }
 
@@ -1037,7 +1037,7 @@ encode_iter(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #else
             return enif_make_tuple2(
                     env,
-                    ATOM_ITER,
+                    AM_ITER,
                     enif_make_tuple_from_array(env, tmp_argv, 3)
                 );
 #endif
@@ -1098,22 +1098,22 @@ encode_iter(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 termstack_push(&stack, curr);
                 termstack_push(&stack, e->atoms->ref_array);
                 termstack_push(&stack, item);
-            } else if(enif_is_identical(curr, ATOM_NULL)) {
+            } else if(enif_is_identical(curr, AM_NULL)) {
                 if(!enc_literal(e, "null", 4)) [[unlikely]] {
                     ret = enc_error(e, "null");
                     goto done;
                 }
-            } else if(e->use_nil && enif_is_identical(curr, ATOM_NIL)) {
+            } else if(e->use_nil && enif_is_identical(curr, AM_NIL)) {
                 if(!enc_literal(e, "null", 4)) [[unlikely]] {
                     ret = enc_error(e, "null");
                     goto done;
                 }
-            } else if(enif_is_identical(curr, ATOM_TRUE)) {
+            } else if(enif_is_identical(curr, AM_TRUE)) {
                 if(!enc_literal(e, "true", 4)) [[unlikely]] {
                     ret = enc_error(e, "true");
                     goto done;
                 }
-            } else if(enif_is_identical(curr, ATOM_FALSE)) {
+            } else if(enif_is_identical(curr, AM_FALSE)) {
                 if(!enc_literal(e, "false", 5)) [[unlikely]] {
                     ret = enc_error(e, "false");
                     goto done;
@@ -1218,7 +1218,7 @@ encode_iter(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     assert(enif_is_list(env, e->iolist));
 
-    ret = e->partial_output ? enif_make_tuple2(env, ATOM_PARTIAL, e->iolist) : e->iolist;
+    ret = e->partial_output ? enif_make_tuple2(env, AM_PARTIAL, e->iolist) : e->iolist;
 
 done:
     bump_used_reds(env, bytes_processed, e->bytes_per_red);
@@ -1257,22 +1257,22 @@ encode_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     const ERL_NIF_TERM* array;
 
     while(enif_get_list_cell(env, opts, &val, &opts)) {
-        if(enif_is_identical(val, ATOM_UESCAPE))
+        if(enif_is_identical(val, AM_UESCAPE))
             e->uescape = 1;
-        else if(enif_is_identical(val, ATOM_PRETTY))
+        else if(enif_is_identical(val, AM_PRETTY))
             e->pretty = 1;
-        else if(enif_is_identical(val, ATOM_ESCAPE_FWD_SLASH))
+        else if(enif_is_identical(val, AM_ESCAPE_FWD_SLASH))
             e->escape_forward_slashes = 1;
-        else if(enif_is_identical(val, ATOM_USE_NIL))
+        else if(enif_is_identical(val, AM_USE_NIL))
             e->use_nil = 1;
-        else if(enif_is_identical(val, ATOM_FORCE_UTF8))
+        else if(enif_is_identical(val, AM_FORCE_UTF8))
             continue; // Ignore, handled in Erlang
         else if(!enif_get_tuple(env, val, &arity, &array) || arity != 2)
-            return enif_raise_exception(env, enif_make_tuple2(env, ATOM_BADARG, val));
-        else if(enif_compare(array[0], ATOM_BYTES_PER_RED) && enif_get_uint64(env, val, &(e->bytes_per_red)))
+            return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, val));
+        else if(enif_compare(array[0], AM_BYTES_PER_RED) && enif_get_uint64(env, val, &(e->bytes_per_red)))
             continue;
         else
-          return enif_raise_exception(env, enif_make_tuple2(env, ATOM_BADARG, val));
+          return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, val));
     }
 
     return encode_iter(env, 3, tmp_argv);

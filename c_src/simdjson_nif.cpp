@@ -82,7 +82,7 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
 
         ERL_NIF_TERM m;
         return enif_make_map_from_arrays(env, ks.data(), vs.data(), ks.size(), &m)
-            ? m : enif_raise_exception(env, ATOM_DUP_KEYS_FOUND);
+            ? m : enif_raise_exception(env, AM_DUP_KEYS_FOUND);
       } else {
         std::vector<ERL_NIF_TERM> items(obj.size());
         if (opts.dedupe_keys) {
@@ -119,7 +119,7 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
     case dom::element_type::INT64:      return enif_make_long(env,  int64_t(elm));
     case dom::element_type::UINT64:     return enif_make_ulong(env, uint64_t(elm));
     case dom::element_type::DOUBLE:     return enif_make_double(env, elm);
-    case dom::element_type::BOOL:       return elm.get<bool>() ? ATOM_TRUE : ATOM_FALSE;
+    case dom::element_type::BOOL:       return elm.get<bool>() ? AM_TRUE : AM_FALSE;
     case dom::element_type::NULL_VALUE:
     default:                            return opts.null_term;
   }
@@ -128,37 +128,37 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
 static ERL_NIF_TERM error_reason(ErlNifEnv* env, error_code err)
 {
   switch (err) {
-    case CAPACITY:                   return make_binary(env, "This parser can't support a document that big");
-    case MEMALLOC:                   return make_binary(env, "Error allocating memory, most likely out of memory");
-    case TAPE_ERROR:                 return make_binary(env, "Something went wrong, this is a generic error");
-    case DEPTH_ERROR:                return make_binary(env, "Your document exceeds the user-specified depth limitation");
-    case STRING_ERROR:               return make_binary(env, "Problem while parsing a string");
-    case T_ATOM_ERROR:               return make_binary(env, "Problem while parsing an atom starting with 't'");
-    case F_ATOM_ERROR:               return make_binary(env, "Problem while parsing an atom starting with 'f'");
-    case N_ATOM_ERROR:               return make_binary(env, "Problem while parsing an atom starting with 'n'");
-    case NUMBER_ERROR:               return make_binary(env, "Problem while parsing a number");
-    case UTF8_ERROR:                 return make_binary(env, "The input is not valid UTF-8");
-    case UNINITIALIZED:              return make_binary(env, "Uninitialized document");
-    case EMPTY:                      return make_binary(env, "No structural element found");
-    case UNESCAPED_CHARS:            return make_binary(env, "Found unescaped characters in a string");
-    case UNCLOSED_STRING:            return make_binary(env, "Missing quote at the end");
-    case UNSUPPORTED_ARCHITECTURE:   return make_binary(env, "Unsupported architecture");
-    case INCORRECT_TYPE:             return make_binary(env, "Element has a different type than user expected");
-    case NUMBER_OUT_OF_RANGE:        return make_binary(env, "Number does not fit in 64 bits");
-    case INDEX_OUT_OF_BOUNDS:        return make_binary(env, "Array index too large");
-    case NO_SUCH_FIELD:              return make_binary(env, "Field not found in object");
-    case IO_ERROR:                   return make_binary(env, "Error reading a file");
-    case INVALID_JSON_POINTER:       return make_binary(env, "Invalid JSON pointer reference");
-    case INVALID_URI_FRAGMENT:       return make_binary(env, "Invalid URI fragment");
-    case UNEXPECTED_ERROR:           return make_binary(env, "Indicative of a bug in simdjson");
-    case PARSER_IN_USE:              return make_binary(env, "Parser is already in use");
-    case OUT_OF_ORDER_ITERATION:     return make_binary(env, "Tried to iterate an array or object out of order");
-    case INSUFFICIENT_PADDING:       return make_binary(env, "Not enough padding for simdjson to safely parse it");
-    case INCOMPLETE_ARRAY_OR_OBJECT: return make_binary(env, "The document ends early");
-    case SCALAR_DOCUMENT_AS_VALUE:   return make_binary(env, "A scalar document is treated as a value");
-    case OUT_OF_BOUNDS:              return make_binary(env, "Attempted to access location outside of document");
-    case TRAILING_CONTENT:           return make_binary(env, "Unexpected trailing content");
-    default:                         return make_binary(env, "Unknown error code " + std::to_string(int(err)));
+    case CAPACITY:                   return enif_make_tuple2(env, AM_CAPACITY,                   make_binary(env, "This parser can't support a document that big"));
+    case MEMALLOC:                   return enif_make_tuple2(env, AM_MEMALLOC,                   make_binary(env, "Error allocating memory, most likely out of memory"));
+    case TAPE_ERROR:                 return enif_make_tuple2(env, AM_TAPE_ERROR,                 make_binary(env, "Something went wrong, this is a generic error"));
+    case DEPTH_ERROR:                return enif_make_tuple2(env, AM_DEPTH_ERROR,                make_binary(env, "Your document exceeds the user-specified depth limitation"));
+    case STRING_ERROR:               return enif_make_tuple2(env, AM_STRING_ERROR,               make_binary(env, "Problem while parsing a string"));
+    case T_ATOM_ERROR:               return enif_make_tuple2(env, AM_T_ATOM_ERROR,               make_binary(env, "Problem while parsing an atom starting with 't'"));
+    case F_ATOM_ERROR:               return enif_make_tuple2(env, AM_F_ATOM_ERROR,               make_binary(env, "Problem while parsing an atom starting with 'f'"));
+    case N_ATOM_ERROR:               return enif_make_tuple2(env, AM_N_ATOM_ERROR,               make_binary(env, "Problem while parsing an atom starting with 'n'"));
+    case NUMBER_ERROR:               return enif_make_tuple2(env, AM_NUMBER_ERROR,               make_binary(env, "Problem while parsing a number"));
+    case UTF8_ERROR:                 return enif_make_tuple2(env, AM_UTF8_ERROR,                 make_binary(env, "The input is not valid UTF-8"));
+    case UNINITIALIZED:              return enif_make_tuple2(env, AM_UNINITIALIZED,              make_binary(env, "Uninitialized document"));
+    case EMPTY:                      return enif_make_tuple2(env, AM_EMPTY,                      make_binary(env, "No structural element found"));
+    case UNESCAPED_CHARS:            return enif_make_tuple2(env, AM_UNESCAPED_CHARS,            make_binary(env, "Found unescaped characters in a string"));
+    case UNCLOSED_STRING:            return enif_make_tuple2(env, AM_UNCLOSED_STRING,            make_binary(env, "Missing quote at the end"));
+    case UNSUPPORTED_ARCHITECTURE:   return enif_make_tuple2(env, AM_UNSUPPORTED_ARCHITECTURE,   make_binary(env, "Unsupported architecture"));
+    case INCORRECT_TYPE:             return enif_make_tuple2(env, AM_INCORRECT_TYPE,             make_binary(env, "Element has a different type than user expected"));
+    case NUMBER_OUT_OF_RANGE:        return enif_make_tuple2(env, AM_NUMBER_OUT_OF_RANGE,        make_binary(env, "Number does not fit in 64 bits"));
+    case INDEX_OUT_OF_BOUNDS:        return enif_make_tuple2(env, AM_INDEX_OUT_OF_BOUNDS,        make_binary(env, "Array index too large"));
+    case NO_SUCH_FIELD:              return enif_make_tuple2(env, AM_NO_SUCH_FIELD,              make_binary(env, "Field not found in object"));
+    case IO_ERROR:                   return enif_make_tuple2(env, AM_IO_ERROR,                   make_binary(env, "Error reading a file"));
+    case INVALID_JSON_POINTER:       return enif_make_tuple2(env, AM_INVALID_JSON_POINTER,       make_binary(env, "Invalid JSON pointer reference"));
+    case INVALID_URI_FRAGMENT:       return enif_make_tuple2(env, AM_INVALID_URI_FRAGMENT,       make_binary(env, "Invalid URI fragment"));
+    case UNEXPECTED_ERROR:           return enif_make_tuple2(env, AM_UNEXPECTED_ERROR,           make_binary(env, "Indicative of a bug in simdjson"));
+    case PARSER_IN_USE:              return enif_make_tuple2(env, AM_PARSER_IN_USE,              make_binary(env, "Parser is already in use"));
+    case OUT_OF_ORDER_ITERATION:     return enif_make_tuple2(env, AM_OUT_OF_ORDER_ITERATION,     make_binary(env, "Tried to iterate an array or object out of order"));
+    case INSUFFICIENT_PADDING:       return enif_make_tuple2(env, AM_INSUFFICIENT_PADDING,       make_binary(env, "Not enough padding for simdjson to safely parse it"));
+    case INCOMPLETE_ARRAY_OR_OBJECT: return enif_make_tuple2(env, AM_INCOMPLETE_ARRAY_OR_OBJECT, make_binary(env, "The document ends early"));
+    case SCALAR_DOCUMENT_AS_VALUE:   return enif_make_tuple2(env, AM_SCALAR_DOCUMENT_AS_VALUE,   make_binary(env, "A scalar document is treated as a value"));
+    case OUT_OF_BOUNDS:              return enif_make_tuple2(env, AM_OUT_OF_BOUNDS,              make_binary(env, "Attempted to access location outside of document"));
+    case TRAILING_CONTENT:           return enif_make_tuple2(env, AM_TRAILING_CONTENT,           make_binary(env, "Unexpected trailing content"));
+    default:                         return enif_make_tuple2(env, AM_UNDEFINED,                  make_binary(env, "Unknown error code " + std::to_string(int(err))));
   }
 }
 
@@ -169,25 +169,25 @@ static ERL_NIF_TERM parse_opts(ErlNifEnv* env, ERL_NIF_TERM options, DecodeOpts&
   int arity;
 
   while (enif_get_list_cell(env, options, &head, &options)) {
-    if (enif_is_identical(head, ATOM_RETURN_MAPS))
+    if (enif_is_identical(head, AM_RETURN_MAPS))
       opts.return_maps = true;
-    else if (enif_is_identical(head, ATOM_OBJECT_AS_TUPLE))
+    else if (enif_is_identical(head, AM_OBJECT_AS_TUPLE))
       opts.return_maps = false;
-    else if (enif_is_identical(head, ATOM_USE_NIL))
-      null_term = ATOM_NIL;
-    else if (enif_is_identical(head, ATOM_DEDUPE_KEYS))
+    else if (enif_is_identical(head, AM_USE_NIL))
+      null_term = AM_NIL;
+    else if (enif_is_identical(head, AM_DEDUPE_KEYS))
       opts.dedupe_keys = true;
     else if (!enif_get_tuple(env, head, &arity, &array) || arity != 2)
-      return enif_raise_exception(env, enif_make_tuple2(env, ATOM_BADARG, head));
-    else if (enif_is_identical(array[0], ATOM_NULL_TERM))
+      return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, head));
+    else if (enif_is_identical(array[0], AM_NULL_TERM))
       null_term = array[1];
     else
-      return enif_raise_exception(env, enif_make_tuple2(env, ATOM_BADARG, head));
+      return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, head));
   }
 
   opts.null_term = null_term;
 
-  return ATOM_OK;
+  return AM_OK;
 }
 
 static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin, const DecodeOpts& opts)
@@ -197,10 +197,12 @@ static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin, const Decode
     dom::element elm = parser.parse(reinterpret_cast<const char*>(bin.data), bin.size);
     return make_term(env, elm, opts);
   } catch (simdjson_error const& error) {
-    auto msg = enif_make_string(env, error.what(), ERL_NIF_LATIN1);
+    auto msg = error_reason(env, error.error());
     return enif_raise_exception(env, msg);
   } catch (DeadProcError const&) {
-    return enif_raise_exception(env, ATOM_ENOPROCESS);
+    return enif_raise_exception(env, enif_make_tuple2(env, AM_ENOPROCESS, make_binary(env, "Process owner not alive")));
+  } catch (std::exception const& e) {
+    return enif_raise_exception(env, enif_make_tuple2(env, AM_OTHER, make_binary(env, e.what())));
   }
 }
 
@@ -213,8 +215,8 @@ static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
   assert(res);
 
   DecodeOpts opts;
-  auto   r =  argc > 1 ? parse_opts(env, argv[1], opts) : ATOM_OK;
-  return r == ATOM_OK  ? decode(env, bin, opts)         : r;
+  auto   r =  argc > 1 ? parse_opts(env, argv[1], opts) : AM_OK;
+  return r == AM_OK  ? decode(env, bin, opts)         : r;
 }
 
 /*
@@ -272,7 +274,7 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 CALL_DECODE:
   DecodeOpts opts;
   auto res = parse_opts(env, argv[1], opts);
-  return res == ATOM_OK ? decode(env, bin, opts) : res;
+  return res == AM_OK ? decode(env, bin, opts) : res;
 }
 
 static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -288,7 +290,7 @@ static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
   auto p = static_cast<dom::document*>(
     enif_alloc_resource(JSON_RESOURCE, sizeof(dom::document)));
   if (!p)
-    return enif_raise_exception(env, ATOM_ENOMEM);
+    return enif_raise_exception(env, AM_ENOMEM);
   //fprintf(stderr, "--> Allocated resource %p by pid %p\r\n", p, &pid);
   new (p) dom::document();
 
@@ -306,12 +308,12 @@ static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if (result > 0) {
       // Process no longer alive
       enif_release_resource(p);
-      return enif_raise_exception(env, ATOM_ENOPROCESS);
+      return enif_raise_exception(env, AM_ENOPROCESS);
     } else {
       assert(result < 0);
       // mon callback is not specified
       enif_release_resource(p);
-      return enif_raise_exception(env, ATOM_ENOCALLBACK);
+      return enif_raise_exception(env, AM_ENOCALLBACK);
     }
   }
 
@@ -340,7 +342,7 @@ static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   DecodeOpts opts;
   if (argc == 3) {
     auto res  = parse_opts(env, argv[2], opts);
-    if  (res != ATOM_OK) [[unlikely]]
+    if  (res != AM_OK) [[unlikely]]
       return res;
   }
 
@@ -353,7 +355,7 @@ static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   try {
     return make_term(env, elm.value_unsafe(), opts);
   } catch (DeadProcError const&) {
-    return enif_raise_exception(env, ATOM_ENOPROCESS);
+    return enif_raise_exception(env, AM_ENOPROCESS);
   }
 }
 
@@ -363,9 +365,9 @@ static ERL_NIF_TERM minify(ErlNifEnv* env, const ErlNifBinary& bin)
   size_t size{};
   auto error = simdjson::minify((const char*)bin.data, bin.size, buffer.get(), size);
   if (error != simdjson::SUCCESS) [[unlikely]]
-    return enif_make_tuple2(env, ATOM_ERROR, error_reason(env, error));
+    return enif_make_tuple2(env, AM_ERROR, error_reason(env, error));
 
-  return enif_make_tuple2(env, ATOM_OK, make_binary(env, std::string_view(buffer.get(), size)));
+  return enif_make_tuple2(env, AM_OK, make_binary(env, std::string_view(buffer.get(), size)));
 }
 
 static ERL_NIF_TERM minify_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -436,48 +438,80 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     return -1;
   }
 
-  auto flags             = (ErlNifResourceFlags)(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER);
-  ErlNifResourceTypeInit rti{0};
-  rti.dtor               = &resource_dtor;
-  rti.down               = &resource_down;
-  JSON_RESOURCE          = enif_open_resource_type_x(env, "simjson_resource",
-                                                     &rti, flags, nullptr);
-  ATOM_OK                = enif_make_atom(env, "ok");
-  ATOM_ERROR             = enif_make_atom(env, "error");
-  ATOM_TRUE              = enif_make_atom(env, "true");
-  ATOM_FALSE             = enif_make_atom(env, "false");
-  ATOM_BADARG            = enif_make_atom(env, "badarg");
-  ATOM_NIL               = enif_make_atom(env, "nil");
-  ATOM_NULL              = enif_make_atom(env, "null");
-  am_null                = ATOM_NULL;
-  ATOM_ENOMEM            = enif_make_atom(env, "enomem");
-  ATOM_ENOPROCESS        = enif_make_atom(env, "enoprocess");
-  ATOM_ENOCALLBACK       = enif_make_atom(env, "enocallback");
-  ATOM_DUP_KEYS_FOUND    = enif_make_atom(env, "dup_keys_found");
+  auto flags                    = (ErlNifResourceFlags)(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER);
+  ErlNifResourceTypeInit        rti{0};
+  rti.dtor                      = &resource_dtor;
+  rti.down                      = &resource_down;
+  JSON_RESOURCE                 = enif_open_resource_type_x(env, "simjson_resource",
+                                                            &rti, flags, nullptr);
+  AM_OK                         = enif_make_atom(env, "ok");
+  AM_ERROR                      = enif_make_atom(env, "error");
+  AM_TRUE                       = enif_make_atom(env, "true");
+  AM_FALSE                      = enif_make_atom(env, "false");
+  AM_BADARG                     = enif_make_atom(env, "badarg");
+  AM_NIL                        = enif_make_atom(env, "nil");
+  AM_NULL =             am_null = enif_make_atom(env, "null");
+  AM_ENOMEM                     = enif_make_atom(env, "enomem");
+  AM_ENOPROCESS                 = enif_make_atom(env, "enoprocess");
+  AM_ENOCALLBACK                = enif_make_atom(env, "enocallback");
+  AM_DUP_KEYS_FOUND             = enif_make_atom(env, "dup_keys_found");
+  AM_OTHER                      = enif_make_atom(env, "other");
 
-  ATOM_RETURN_MAPS       = enif_make_atom(env, "return_maps");
-  ATOM_OBJECT_AS_TUPLE   = enif_make_atom(env, "object_as_tuple");
-  ATOM_USE_NIL           = enif_make_atom(env, "use_nil");
-  ATOM_NULL_TERM         = enif_make_atom(env, "null_term");
-  ATOM_DEDUPE_KEYS       = enif_make_atom(env, "dedupe_keys");
+  AM_RETURN_MAPS                = enif_make_atom(env, "return_maps");
+  AM_OBJECT_AS_TUPLE            = enif_make_atom(env, "object_as_tuple");
+  AM_USE_NIL                    = enif_make_atom(env, "use_nil");
+  AM_NULL_TERM                  = enif_make_atom(env, "null_term");
+  AM_DEDUPE_KEYS                = enif_make_atom(env, "dedupe_keys");
 
-  ATOM_UESCAPE           = enif_make_atom(env, "uescape");
-  ATOM_PRETTY            = enif_make_atom(env, "pretty");
-  ATOM_ESCAPE_FWD_SLASH  = enif_make_atom(env, "escape_fwd_slash");
-  ATOM_FORCE_UTF8        = enif_make_atom(env, "force_utf8");
-  ATOM_BYTES_PER_RED     = enif_make_atom(env, "bytes_per_red");
-  ATOM_ITER              = enif_make_atom(env, "iter");
-  ATOM_PARTIAL           = enif_make_atom(env, "partial");
+  AM_CAPACITY                   = enif_make_atom(env, "capacity");
+  AM_MEMALLOC                   = enif_make_atom(env, "memalloc");
+  AM_TAPE_ERROR                 = enif_make_atom(env, "tape_error");
+  AM_DEPTH_ERROR                = enif_make_atom(env, "depth_error");
+  AM_STRING_ERROR               = enif_make_atom(env, "string_error");
+  AM_T_ATOM_ERROR               = enif_make_atom(env, "t_atom_error");
+  AM_F_ATOM_ERROR               = enif_make_atom(env, "f_atom_error");
+  AM_N_ATOM_ERROR               = enif_make_atom(env, "n_atom_error");
+  AM_NUMBER_ERROR               = enif_make_atom(env, "number_error");
+  AM_UTF8_ERROR                 = enif_make_atom(env, "utf8_error");
+  AM_UNINITIALIZED              = enif_make_atom(env, "uninitialized");
+  AM_EMPTY                      = enif_make_atom(env, "empty");
+  AM_UNESCAPED_CHARS            = enif_make_atom(env, "unescaped_chars");
+  AM_UNCLOSED_STRING            = enif_make_atom(env, "unclosed_string");
+  AM_UNSUPPORTED_ARCHITECTURE   = enif_make_atom(env, "unsupported_architecture");
+  AM_INCORRECT_TYPE             = enif_make_atom(env, "incorrect_type");
+  AM_NUMBER_OUT_OF_RANGE        = enif_make_atom(env, "number_out_of_range");
+  AM_INDEX_OUT_OF_BOUNDS        = enif_make_atom(env, "index_out_of_bounds");
+  AM_NO_SUCH_FIELD              = enif_make_atom(env, "no_such_field");
+  AM_IO_ERROR                   = enif_make_atom(env, "io_error");
+  AM_INVALID_JSON_POINTER       = enif_make_atom(env, "invalid_json_pointer");
+  AM_INVALID_URI_FRAGMENT       = enif_make_atom(env, "invalid_uri_fragment");
+  AM_UNEXPECTED_ERROR           = enif_make_atom(env, "unexpected_error");
+  AM_PARSER_IN_USE              = enif_make_atom(env, "parser_in_use");
+  AM_OUT_OF_ORDER_ITERATION     = enif_make_atom(env, "out_of_order_iteration");
+  AM_INSUFFICIENT_PADDING       = enif_make_atom(env, "insufficient_padding");
+  AM_INCOMPLETE_ARRAY_OR_OBJECT = enif_make_atom(env, "incomplete_array_or_object");
+  AM_SCALAR_DOCUMENT_AS_VALUE   = enif_make_atom(env, "scalar_document_as_value");
+  AM_OUT_OF_BOUNDS              = enif_make_atom(env, "out_of_bounds");
+  AM_TRAILING_CONTENT           = enif_make_atom(env, "trailing_content");
+  AM_UNDEFINED                  = enif_make_atom(env, "undefined");
 
-  int   arity;
+  AM_UESCAPE                    = enif_make_atom(env, "uescape");
+  AM_PRETTY                     = enif_make_atom(env, "pretty");
+  AM_ESCAPE_FWD_SLASH           = enif_make_atom(env, "escape_fwd_slash");
+  AM_FORCE_UTF8                 = enif_make_atom(env, "force_utf8");
+  AM_BYTES_PER_RED              = enif_make_atom(env, "bytes_per_red");
+  AM_ITER                       = enif_make_atom(env, "iter");
+  AM_PARTIAL                    = enif_make_atom(env, "partial");
+
+  int                 arity;
   const ERL_NIF_TERM* tagval;
-  ERL_NIF_TERM head, list = load_info;
+  ERL_NIF_TERM  head, list = load_info;
 
   while (enif_get_list_cell(env, list, &head, &list)) {
     if (!enif_get_tuple(env, head, &arity, &tagval) || arity != 2) [[unlikely]]
       return enif_make_badarg(env);
 
-    if (!enif_is_identical(tagval[0], ATOM_NULL) || !enif_is_atom(env, tagval[1]))
+    if (!enif_is_identical(tagval[0], AM_NULL) || !enif_is_atom(env, tagval[1]))
       return enif_make_badarg(env);
     else
       am_null = tagval[1];
