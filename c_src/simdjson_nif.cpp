@@ -381,11 +381,10 @@ static ERL_NIF_TERM minify_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 static ERL_NIF_TERM minify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+  assert(argc == 1);
+
   ErlNifBinary bin;
   ERL_NIF_TERM args[1];
-
-  if (argc != 1) [[unlikely]]
-    return enif_make_badarg(env);
 
   if (enif_inspect_binary(env, argv[0], &bin)) [[likely]] {
     if (bin.size < TIMESLICE_BYTES)
@@ -402,6 +401,20 @@ static ERL_NIF_TERM minify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
   return enif_schedule_nif(env, "simdjson_minify",
                            ERL_NIF_DIRTY_JOB_CPU_BOUND, minify_dirty, argc, args);
+}
+
+static ERL_NIF_TERM int_to_bin_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  assert(argc == 1);
+  int64_t n;
+
+  if (!enif_get_long(env, argv[0], &n))
+    return enif_make_badarg(env);
+
+  char buf[64];
+  auto end = util::lltoa(buf, n);
+
+  return make_binary(env, std::string_view(buf, end - buf));
 }
 
 static void resource_dtor(ErlNifEnv* env, void* arg)
@@ -509,6 +522,7 @@ static ErlNifFunc funcs[] = {
   {"minify",      1, minify_nif},
   {"encode_init", 2, encode_init},
   {"encode_iter", 3, encode_iter},
+  {"int_to_bin",  1, int_to_bin_nif},
 };
 
 ERL_NIF_INIT(simdjson, funcs, load, nullptr, upgrade, nullptr);

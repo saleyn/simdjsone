@@ -13,6 +13,8 @@
 %%%----------------------------------------------------------------------------
 -module(simdjson).
 -export([decode/1, decode/2, parse/1, get/2, get/3, minify/1, encode/1, encode/2]).
+-export([int_to_bin/1]).
+
 -compile({no_auto_import, [get/2]}).
 
 -on_load(init/0).
@@ -162,7 +164,14 @@ finish_encode([InvalidEjson | _], _) ->
 finish_encode(_, _) ->
   error(invalid_ejson).
 
+%% @doc Fast integer to binary conversion
+-spec int_to_bin(integer()) -> binary().
+int_to_bin(_Int) ->
+  ?NOT_LOADED_ERROR.
 
+%%%----------------------------------------------------------------------------
+%%% TEST
+%%%----------------------------------------------------------------------------
 -ifdef(EUNIT).
 
 encode_test_() ->
@@ -223,6 +232,19 @@ minify_test_() ->
   [
     ?_assertEqual({ok, <<"[1,2,3]">>}, minify("[ 1, 2, 3 ]")),
     ?_assertEqual({ok, <<"[{\"a\":true,\"b\":false},2,3]">>}, minify("[ {\"a\": true, \"b\":  false}, 2, 3 ]"))
+  ].
+
+int_to_bin_test_() ->
+  F = fun G(0, A) -> A;
+          G(N, A) ->
+            X = rand:uniform(1 bsl 60),
+            case integer_to_binary(X) == int_to_bin(X) of
+              true  -> G(N-1, A);
+              false -> G(N-1, [X | A])
+            end
+      end,
+  [
+    ?_assertEqual([], F(1000000, []))
   ].
 
 benchmark_test_() ->
