@@ -33,7 +33,7 @@ The following decoding options are supported in `decode(String, Options)`:
 
 ### Encoding
 
-The following decoding options are supported in `encode(String, Options)`:
+The following encoding options are supported in `encode(String, Options)`:
 
 - `uescape`            - escape UTF-8 sequences to produce a 7-bit clean output
 - `pretty`             - return JSON using two-space indentation
