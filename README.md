@@ -40,13 +40,13 @@ The following encoding options are supported in `encode(String, Options)`:
 - `use_nil`            - encode the atom `nil` as `null`
 - `escape_fwd_slash`   - escape the `/` character (useful when encoding URLs)
 - `{bytes_per_red, N}` - where `N` >= 0 - This controls the number of bytes
-  that Jiffy will process as an equivalent to a reduction. Each 20 reductions we
-  consume 1% of our allocated time slice for the current process. When the
-  Erlang VM indicates we need to return from the NIF.
+  that the NIF library will process as an equivalent to a reduction. Each 20
+  reductions we consume 1% of our allocated time slice for the current process.
+  When the Erlang VM indicates we need to return from the NIF.
 
 **NOTE**: Since the simdjson library currently doen't have an implementation of
 a JSON encoder, the encoding implementation is the jiffy's modified encoder
-optimized for encoding integers.
+optimized for speed when encoding integers.
 
 The implementation includes `simdjson:int_to_bin/1` function that is about 30%
 faster than `erlang:integer_to_binary/1`, but it's limited to integers in range:
