@@ -116,8 +116,8 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
       memcpy(bin.data, str.data(), str.length());
       return enif_make_binary(env, &bin);
     }
-    case dom::element_type::INT64:      return enif_make_long(env,  int64_t(elm));
-    case dom::element_type::UINT64:     return enif_make_ulong(env, uint64_t(elm));
+    case dom::element_type::INT64:      return enif_make_int64(env,  int64_t(elm));
+    case dom::element_type::UINT64:     return enif_make_uint64(env, uint64_t(elm));
     case dom::element_type::DOUBLE:     return enif_make_double(env, elm);
     case dom::element_type::BOOL:       return elm.get<bool>() ? AM_TRUE : AM_FALSE;
     case dom::element_type::NULL_VALUE:
@@ -410,7 +410,7 @@ static ERL_NIF_TERM int_to_bin_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
   assert(argc == 1);
   int64_t n;
 
-  if (!enif_get_long(env, argv[0], &n))
+  if (!enif_get_int64(env, argv[0], &n))
     return enif_make_badarg(env);
 
   char buf[64];
