@@ -8,8 +8,8 @@
             ],
             "defines": [],
             "compilerPath": "/usr/sbin/gcc",
-            "cStandard": "c17",
-            "cppStandard": "gnu++17",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
             "intelliSenseMode": "linux-gcc-x64"
         }
     ],

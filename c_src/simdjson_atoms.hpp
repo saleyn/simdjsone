@@ -67,3 +67,41 @@ static ERL_NIF_TERM AM_TRAILING_CONTENT;
 static ERL_NIF_TERM AM_UNDEFINED;
 
 static ERL_NIF_TERM am_null;
+
+struct DeadProcError : public std::exception {};
+
+inline std::tuple<ERL_NIF_TERM, unsigned char*>
+make_binary(ErlNifEnv* env, size_t size)
+{
+  ERL_NIF_TERM term;
+  auto   p = enif_make_new_binary(env, size, &term);
+  return std::make_tuple(term, p);
+}
+
+inline ERL_NIF_TERM make_binary(ErlNifEnv* env, std::string_view const& str)
+{
+  auto [term, p] = make_binary(env, str.length());
+  memcpy(p, str.data(), str.length());
+  return term;
+}
+
+inline ERL_NIF_TERM make_binary(ErlNifEnv* env, const char* str)
+{
+  size_t n = strlen(str);
+  auto [term, p] = make_binary(env, n);
+  memcpy(p, str, n);
+  return term;
+}
+
+ERL_NIF_TERM error_reason(ErlNifEnv* env, simdjson::error_code err);
+
+inline ERL_NIF_TERM raise_error(ErlNifEnv* env, ERL_NIF_TERM reason, const char* err)
+{
+  return enif_raise_exception(env, enif_make_tuple2(env, reason, make_binary(env, err)));
+}
+
+inline ERL_NIF_TERM raise_error(ErlNifEnv* env, simdjson::error_code err)
+{
+  return enif_raise_exception(env, error_reason(env, err))
+}
+
