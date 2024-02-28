@@ -43,7 +43,7 @@ LDFLAGS    += $(ERL_LDFLAGS) -lei -shared
 SRC_DIR     = $(CURDIR)
 SO_OUTPUT  ?= $(BASEDIR)/priv/$(PROJECT).so
 
-SOURCES    := $(wildcard *.c*)
+SOURCES    := simdjson.cpp simdjson_nif.cpp
 OBJECTS     = $(SOURCES:%.cpp=%.o)
 
 COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
