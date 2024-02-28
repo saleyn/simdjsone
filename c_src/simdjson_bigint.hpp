@@ -14,7 +14,6 @@
 namespace simdjsone {
 
 using namespace simdjson;
-using namespace simdjson::SIMDJSON_IMPLEMENTATION::numberparsing;
 
 // Unfortunately there's no NIF support for big integers.  We use the following
 // workaround - encode the integer from a string into the binary term format.
@@ -28,7 +27,7 @@ struct BigInt {
   // will be returned as a BigInt 12345678901234567890123.
   // The function returns 0 if the decoding fails.
   static ERL_NIF_TERM
-  decode(ErlNifEnv* env, const unsigned char* begin, const unsigned char* end)
+  decode(ErlNifEnv* env, const char* begin, const char* end)
   {
     auto neg = false;
 
@@ -43,7 +42,7 @@ struct BigInt {
     result.push_back(110);         // Small BIG integer
     result.push_back(0);           // Length placeholder
     result.push_back(neg);         // Sign byte
-    convert_to_base256(result, result.begin()+4, (const char*)begin, (const char*)end);
+    convert_to_base256(result, result.begin()+4, begin, end);
     auto size = result.size() - 4; // Get byte length
 
     if (size > 255) [[unlikely]]

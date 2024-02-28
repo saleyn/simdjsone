@@ -126,22 +126,22 @@ compiler):
 ```
 $ make benchmark
 === Benchmark (file size: 616.7K) ===
-   simdjsone:   5539.670us
-      euneus:   8435.540us
-       thoas:   8902.160us
-       jiffy:  13688.250us
+   simdjsone:   4201.600us
+      euneus:   8593.880us
+       thoas:   9097.410us
+       jiffy:  14056.880us
 
 === Benchmark (file size: 1.3K) ===
-   simdjsone:      8.030us
-       jiffy:     14.950us
-       thoas:     14.960us
-      euneus:     19.830us
+   simdjsone:      5.860us
+       jiffy:     13.470us
+       thoas:     15.970us
+      euneus:     20.690us
 
 === Benchmark (file size: 0.1K) ===
-   simdjsone:      1.530us
-       jiffy:      2.700us
-      euneus:      3.220us
-       thoas:      3.600us
+   simdjsone:      1.220us
+       jiffy:      2.680us
+      euneus:      3.180us
+       thoas:      3.950us
 ```
 If you have Elixir installed, the project also includes a benchmark for the
 [jason](https://hex.pm/packages/jason) and
@@ -152,90 +152,92 @@ $ MIX_ENV=test make benchmark
 === Benchmark (file size: 616.7K) ===
 
 Name                ips        average  deviation         median         99th %
-simdjsone        233.24        4.29 ms    ±32.31%        4.34 ms       10.19 ms
-jason            160.87        6.22 ms     ±4.83%        6.14 ms        7.50 ms
-poison           158.17        6.32 ms     ±7.06%        6.20 ms        8.67 ms
-euneus           156.35        6.40 ms     ±8.01%        6.26 ms        8.47 ms
-thaos            138.75        7.21 ms    ±15.95%        6.81 ms       11.96 ms
-jiffy             83.03       12.04 ms     ±6.64%       12.10 ms       13.98 ms
+simdjsone        344.00        2.91 ms    ±18.13%        2.63 ms        4.82 ms
+poison           154.88        6.46 ms    ±10.31%        6.25 ms        9.96 ms
+jason            153.87        6.50 ms    ±11.37%        6.30 ms       10.18 ms
+thaos            147.71        6.77 ms    ±11.53%        6.52 ms       10.64 ms
+euneus           142.47        7.02 ms    ±22.71%        6.50 ms       13.47 ms
+jiffy             78.74       12.70 ms    ±12.83%       12.52 ms       21.65 ms
 
 Comparison:
-simdjsone        233.24
-jason            160.87 - 1.45x slower +1.93 ms
-poison           158.17 - 1.47x slower +2.03 ms
-euneus           156.35 - 1.49x slower +2.11 ms
-thaos            138.75 - 1.68x slower +2.92 ms
-jiffy             83.03 - 2.81x slower +7.76 ms
+simdjsone        344.00
+poison           154.88 - 2.22x slower +3.55 ms
+jason            153.87 - 2.24x slower +3.59 ms
+thaos            147.71 - 2.33x slower +3.86 ms
+euneus           142.47 - 2.41x slower +4.11 ms
+jiffy             78.74 - 4.37x slower +9.79 ms
 
 Memory usage statistics:
 
 Name         Memory usage
 simdjsone      0.00153 MB
-jason             1.81 MB - 1188.30x memory usage +1.81 MB
-poison            1.84 MB - 1206.10x memory usage +1.84 MB
-euneus            1.87 MB - 1225.57x memory usage +1.87 MB
-thaos             1.81 MB - 1188.19x memory usage +1.81 MB
-jiffy             3.19 MB - 2088.37x memory usage +3.19 MB
+poison            1.84 MB - 1200.09x memory usage +1.84 MB
+jason             1.81 MB - 1182.38x memory usage +1.81 MB
+thaos             1.81 MB - 1182.31x memory usage +1.81 MB
+euneus            1.87 MB - 1219.47x memory usage +1.87 MB
+jiffy             3.19 MB - 2077.98x memory usage +3.19 MB
 
 **All measurements for memory usage were the same**
 
 === Benchmark (file size: 1.3K) ===
 
 Name                ips        average  deviation         median         99th %
-simdjsone      128.43 K        7.79 μs   ±468.75%        5.60 μs       21.10 μs
-euneus         106.19 K        9.42 μs    ±87.91%        8.80 μs       21.40 μs
-poison          97.80 K       10.23 μs    ±74.31%        9.30 μs          23 μs
-jason           96.92 K       10.32 μs    ±98.77%        9.50 μs       26.30 μs
-jiffy           90.31 K       11.07 μs    ±97.74%        9.20 μs       45.30 μs
-thaos           79.04 K       12.65 μs   ±133.82%       11.50 μs       26.70 μs
+simdjsone      177.77 K        5.63 μs   ±187.84%        4.90 μs       16.90 μs
+euneus         101.90 K        9.81 μs    ±94.81%           9 μs       22.30 μs
+poison          98.29 K       10.17 μs    ±87.43%        9.40 μs       23.30 μs
+jason           95.18 K       10.51 μs    ±99.89%        9.50 μs       30.70 μs
+jiffy           88.49 K       11.30 μs   ±259.91%        9.30 μs       32.60 μs
+thaos           84.36 K       11.85 μs    ±57.49%       10.90 μs       25.90 μs
 
 Comparison:
-simdjsone      128.43 K
-euneus         106.19 K - 1.21x slower +1.63 μs
-poison          97.80 K - 1.31x slower +2.44 μs
-jason           96.92 K - 1.33x slower +2.53 μs
-jiffy           90.31 K - 1.42x slower +3.29 μs
-thaos           79.04 K - 1.62x slower +4.87 μs
+simdjsone      177.77 K
+euneus         101.90 K - 1.74x slower +4.19 μs
+poison          98.29 K - 1.81x slower +4.55 μs
+jason           95.18 K - 1.87x slower +4.88 μs
+jiffy           88.49 K - 2.01x slower +5.68 μs
+thaos           84.36 K - 2.11x slower +6.23 μs
 
 Memory usage statistics:
 
 Name         Memory usage
-simdjsone         1.55 KB
-euneus            5.22 KB - 3.36x memory usage +3.66 KB
-poison            5.57 KB - 3.58x memory usage +4.02 KB
-jason             5.29 KB - 3.40x memory usage +3.73 KB
-jiffy             1.55 KB - 1.00x memory usage +0 KB
-thaos             5.08 KB - 3.27x memory usage +3.52 KB
+simdjsone         1.57 KB
+euneus            5.22 KB - 3.32x memory usage +3.65 KB
+poison            5.57 KB - 3.55x memory usage +4 KB
+jason             5.29 KB - 3.37x memory usage +3.72 KB
+jiffy             1.55 KB - 0.99x memory usage -0.01563 KB
+thaos             5.22 KB - 3.32x memory usage +3.65 KB
 
 **All measurements for memory usage were the same**
 
 === Benchmark (file size: 0.1K) ===
 
 Name                ips        average  deviation         median         99th %
-simdjsone      695.44 K        1.44 μs  ±2134.49%        1.10 μs        3.40 μs
-poison         613.54 K        1.63 μs  ±1373.87%        1.40 μs        3.60 μs
-euneus         515.85 K        1.94 μs  ±1023.18%        1.70 μs        4.20 μs
-thaos          497.72 K        2.01 μs   ±665.35%        1.80 μs        4.40 μs
-jason          425.55 K        2.35 μs   ±816.21%           2 μs        6.10 μs
-jiffy          327.46 K        3.05 μs   ±774.79%        2.50 μs        7.90 μs
+simdjsone      820.20 K        1.22 μs  ±1445.57%        1.10 μs        3.30 μs
+poison         576.53 K        1.73 μs  ±1017.41%        1.40 μs        4.00 μs
+thaos          489.07 K        2.04 μs  ±1003.95%        1.80 μs        4.70 μs
+euneus         483.75 K        2.07 μs   ±624.18%        1.80 μs        4.70 μs
+jason          435.99 K        2.29 μs   ±752.86%           2 μs        5.70 μs
+jiffy          311.21 K        3.21 μs   ±652.57%        2.50 μs        9.10 μs
 
 Comparison:
-simdjsone      695.44 K
-poison         613.54 K - 1.13x slower +0.192 μs
-euneus         515.85 K - 1.35x slower +0.50 μs
-thaos          497.72 K - 1.40x slower +0.57 μs
-jason          425.55 K - 1.63x slower +0.91 μs
-jiffy          327.46 K - 2.12x slower +1.62 μs
+simdjsone      820.20 K
+poison         576.53 K - 1.42x slower +0.52 μs
+thaos          489.07 K - 1.68x slower +0.83 μs
+euneus         483.75 K - 1.70x slower +0.85 μs
+jason          435.99 K - 1.88x slower +1.07 μs
+jiffy          311.21 K - 2.64x slower +1.99 μs
 
 Memory usage statistics:
 
 Name         Memory usage
-simdjsone         0.59 KB
-poison            1.32 KB - 2.22x memory usage +0.73 KB
-euneus            1.20 KB - 2.03x memory usage +0.61 KB
-thaos             1.20 KB - 2.03x memory usage +0.61 KB
-jason             1.27 KB - 2.14x memory usage +0.68 KB
-jiffy             1.46 KB - 2.46x memory usage +0.87 KB
+simdjsone         0.50 KB
+poison            1.32 KB - 2.64x memory usage +0.82 KB
+thaos             1.20 KB - 2.41x memory usage +0.70 KB
+euneus            1.20 KB - 2.41x memory usage +0.70 KB
+jason             1.27 KB - 2.55x memory usage +0.77 KB
+jiffy             1.46 KB - 2.92x memory usage +0.96 KB
+
+**All measurements for memory usage were the same**
 ```
 
 ## TODO:

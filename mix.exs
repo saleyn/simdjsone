@@ -23,7 +23,7 @@ defmodule Simdjsone.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:benchee, "~> 1.0",   only: :test},
+      {:benchee, "~> 1.3",   only: :test},
       {:jiffy,   "~> 1.1.1", only: :test},
       {:jason,   "~> 1.4",   only: :test},
       {:thoas,   "~> 1.0",   only: :test},

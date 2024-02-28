@@ -102,6 +102,6 @@ inline ERL_NIF_TERM raise_error(ErlNifEnv* env, ERL_NIF_TERM reason, const char*
 
 inline ERL_NIF_TERM raise_error(ErlNifEnv* env, simdjson::error_code err)
 {
-  return enif_raise_exception(env, error_reason(env, err))
+  return enif_raise_exception(env, error_reason(env, err));
 }
 

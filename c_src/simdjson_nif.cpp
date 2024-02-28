@@ -5,30 +5,20 @@
 #include <cstring>
 #include <vector>
 #include <cassert>
-#include <set>
+#include <unordered_set>
 #include <string>
 #include <string.h>
 
 #include "simdjson_atoms.hpp"
+#include "simdjson_decoder.hpp"
 #include "simdjson_encoder.hpp"
 
 using namespace simdjson;
+using simdjsone::DecodeOpts;
 
 static constexpr const size_t BYTES_PER_REDUCTION = 20;
 static constexpr const size_t ERL_REDUCTION_COUNT = 2000;
 static constexpr const size_t TIMESLICE_BYTES     = ERL_REDUCTION_COUNT * BYTES_PER_REDUCTION / 2;
-
-struct DecodeOpts {
-  DecodeOpts()
-  : return_maps(true)
-  , null_term(am_null)
-  , dedupe_keys(false)
-  {}
-
-  bool          return_maps;
-  ERL_NIF_TERM  null_term;
-  bool          dedupe_keys;
-};
 
 static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const DecodeOpts& opts)
 {
@@ -44,7 +34,7 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
         std::vector<ERL_NIF_TERM> vs(obj.size());
 
         if (opts.dedupe_keys) {
-          std::set<std::string_view> seen;
+          std::unordered_set<std::string_view> seen;
           for(auto field : obj) {
             auto [_, inserted] = seen.emplace(field.key);
             if (inserted) [[likely]] {
@@ -69,7 +59,7 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
       } else {
         std::vector<ERL_NIF_TERM> items(obj.size());
         if (opts.dedupe_keys) {
-          std::set<std::string_view> seen;
+          std::unordered_set<std::string_view> seen;
           for(auto field : obj) {
             auto [_, inserted] = seen.emplace(field.key);
             if (inserted) [[likely]]
@@ -138,18 +128,8 @@ static ERL_NIF_TERM parse_opts(ErlNifEnv* env, ERL_NIF_TERM options, DecodeOpts&
 
 static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin, const DecodeOpts& opts)
 {
-  try {
-    dom::parser parser;
-    dom::element elm = parser.parse(reinterpret_cast<const char*>(bin.data), bin.size);
-    return make_term(env, elm, opts);
-  } catch (simdjson_error const& error) {
-    auto msg = error_reason(env, error.error());
-    return enif_raise_exception(env, msg);
-  } catch (DeadProcError const&) {
-    return enif_raise_exception(env, enif_make_tuple2(env, AM_ENOPROCESS, make_binary(env, "Process owner not alive")));
-  } catch (std::exception const& e) {
-    return enif_raise_exception(env, enif_make_tuple2(env, AM_OTHER, make_binary(env, e.what())));
-  }
+  simdjsone::OnDemandDecoder decoder(env, opts);
+  return decoder.to_json(bin);
 }
 
 static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -162,34 +142,8 @@ static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
   DecodeOpts opts;
   auto   r =  argc > 1 ? parse_opts(env, argv[1], opts) : AM_OK;
-  return r == AM_OK  ? decode(env, bin, opts)         : r;
+  return r == AM_OK    ? decode(env, bin, opts)         : r;
 }
-
-/*
-static uint64_t get_time() {
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return static_cast<uint64_t>(t.tv_sec)*1000000000l + start_time.tv_nsec;
-}
-
-static bool consume_timeslice(ErlNifEnv* env, uint64_t start_time = 0) {
-  auto now = get_time();
-
-  // Figure out how much time elapsed
-  auto elapsed = t - start_time;
-
-  // Convert that to a percentage of a timeslice
-  int slice_percent = (elapsed * 100) / TIMESLICE_NANOSECONDS;
-  if (slice_percent < 0)
-    slice_percent = 0;
-  else if (slice_percent > 100)
-    slice_percent = 100;
-
-  // If the result is 1, then we have consumed the entire slice and should
-  // yield.
-  return enif_consume_timeslice(env, slice_percent) == 1;
-}
-*/
 
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -367,7 +321,7 @@ static ERL_NIF_TERM int_to_bin_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 ERL_NIF_TERM error_reason(ErlNifEnv* env, const char* err)
 {
-  return enif_make_tuple2(env, make_binary(env, err));
+  return enif_make_tuple2(env, AM_ERROR, make_binary(env, err));
 }
 
 ERL_NIF_TERM error_reason(ErlNifEnv* env, error_code err)

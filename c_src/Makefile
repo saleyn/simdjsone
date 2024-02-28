@@ -46,11 +46,11 @@ SO_OUTPUT  ?= $(BASEDIR)/priv/$(PROJECT).so
 SOURCES    := simdjson.cpp simdjson_nif.cpp
 OBJECTS     = $(SOURCES:%.cpp=%.o)
 
-COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
+COMPILE_CPP = $(CXX) $(CXXFLAGS) $(CPPFLAGS)
 
 # Targets
 
-all: deps $(SO_OUTPUT)
+all: deps $(SO_OUTPUT) ttt
 
 deps: simdjson.h simdjson.cpp
 
@@ -58,9 +58,10 @@ clean:
 	rm -f $(SO_OUTPUT) *.o
 
 info:
-	@echo "SOURCES: $(SOURCES)"
-	@echo "OBJECTS: $(OBJECTS)"
-	@echo "OUTPUT:  $(SO_OUTPUT)"
+	@echo "SOURCES:  $(SOURCES)"
+	@echo "OBJECTS:  $(OBJECTS)"
+	@echo "OUTPUT:   $(SO_OUTPUT)"
+	@echo "CXXFLAGS: $(CXXFLAGS)"
 
 simdjson.h simdjson.cpp:
 	wget -q https://raw.githubusercontent.com/simdjson/simdjson/master/singleheader/$@
@@ -69,6 +70,8 @@ $(SO_OUTPUT): $(OBJECTS)
 	@mkdir -p $(BASEDIR)/priv/
 	$(CXX) $(OBJECTS) $(LDFLAGS) -o $(SO_OUTPUT)
 
-%.o: %.cpp
-	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
+simdjson.o: simdjson.cpp simdjson.h
+	$(COMPILE_CPP) -c $(OUTPUT_OPTION) $<
 
+%.o: %.cpp $(wildcard *.hpp)
+	$(COMPILE_CPP) -c $(OUTPUT_OPTION) $<

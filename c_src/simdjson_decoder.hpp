@@ -2,158 +2,143 @@
 
 #include <erl_nif.h>
 #include <utility>
+#include <unordered_set>
 #include "simdjson.h"
 #include "simdjson_atoms.hpp"
 #include "simdjson_bigint.hpp"
 
-#define SIMDJSON_GCC_COMPILER ((__GNUC__) && !(__clang__) && !(__INTEL_COMPILER))
+#if __cplusplus < 202101L
+namespace std {
+  [[noreturn]] inline void unreachable()
+  {
+      // Uses compiler specific extensions if possible.
+      // Even if no extension is used, undefined behavior is still raised by
+      // an empty function body and the noreturn attribute.
+  #if defined(_MSC_VER) && !defined(__clang__) // MSVC
+    __assume(false);
+  #else // GCC, Clang
+    __builtin_unreachable();
+  #endif
+  }
+}
+#endif
 
 namespace simdjsone {
 
-#if SIMDJSON_GCC_COMPILER
-  // the GCC compiler does well with by-value passing.
-  // GCC has superior recursive inlining:
-  // https://stackoverflow.com/questions/29186186/why-does-gcc-generate-a-faster-program-than-clang-in-this-recursive-fibonacci-co
-  // https://godbolt.org/z/TeK4doE51
-  using ValueType = simdjson::SIMDJSON_BUILTIN_IMPLEMENTATION::ondemand::value;
-#else
-  using ValueType = simdjson::SIMDJSON_BUILTIN_IMPLEMENTATION::ondemand::value&;
-#endif
+struct DecodeOpts {
+  DecodeOpts()
+  : return_maps(true)
+  , null_term(am_null)
+  , dedupe_keys(false)
+  {}
+
+  bool          return_maps;
+  ERL_NIF_TERM  null_term;
+  bool          dedupe_keys;
+};
 
 using namespace simdjson;
 
 struct OnDemandDecoder {
-  struct Writer {
-    Writer(ErlNifEnv* env) : m_env(env), m_res(0), m_err(nullptr) {}
-
-    void append_s64(int64_t val) {
-      if (!enif_make_int64(m_env, val)) [[unlikely]]
-        m_err = "Failed to decode int64 value";
-    }
-
-    void append_u64(uint64_t val) {
-      if (!enif_make_uint64(m_env, val)) [[unlikely]]
-        m_err = "Failed to decode uint64 value";
-    }
-
-    void append_double(double val) {
-      if (!enif_make_double(m_env, val)) [[unlikely]]
-        m_err = "Failed to decode double value";
-    }
-
-    ERL_NIF_TERM value() const { return m_res; }
-    const char*  error() const { return m_err; }
-  private:
-    ErlNifEnv*   m_env;
-    ERL_NIF_TERM m_res;
-    const char*  m_err;
-  };
-
-  OnDemandDecoder(ErlNifEnv* env);
+  OnDemandDecoder(ErlNifEnv* env, const DecodeOpts& opts);
   inline ERL_NIF_TERM to_json(ErlNifBinary const& bin);
 private:
-  inline ERL_NIF_TERM decode_number(simdjson::ondemand::raw_json_string d) noexcept;
-  inline ERL_NIF_TERM decode_raw_string(simdjson::ondemand::raw_json_string rjs);
-  inline void recursive_processor(ValueType element);
+  template <typename T>
+  std::pair<bool, ERL_NIF_TERM> decode_number(T& doc) noexcept;
+  std::pair<bool, ERL_NIF_TERM> decode_number(ondemand::number num) noexcept;
+  inline ERL_NIF_TERM unescape_string(ondemand::raw_json_string rjs, size_t size,
+                                      std::unordered_set<std::string>* seen, ERL_NIF_TERM& err);
+  inline std::pair<bool, ERL_NIF_TERM> recursive_processor(ondemand::value element);
+  void release_binaries(std::vector<ERL_NIF_TERM>& items);
+  inline ERL_NIF_TERM raise_error(ERL_NIF_TERM, const char* err);
 
-  simdjson::ondemand::parser m_parser;
-  ErlNifEnv*                 m_env;
+  ondemand::parser m_parser;
+  ErlNifEnv*       m_env;
+  DecodeOpts       m_opts;
+  padded_string    m_buff;
 };
 
+OnDemandDecoder::OnDemandDecoder(ErlNifEnv* env, const DecodeOpts& opts)
+  : m_env(env)
+  , m_opts(opts)
+{}
+
 ERL_NIF_TERM OnDemandDecoder::to_json(ErlNifBinary const& bin) {
-  simdjson::padded_string json(reinterpret_cast<const char*>(bin.data), bin.size);
+  padded_string json(reinterpret_cast<const char*>(bin.data), bin.size);
+  auto buf = padded_string(bin.size);
+  m_buff.swap(buf);
 
   ondemand::document doc = m_parser.iterate(json);
-  ERL_NIF_TERM res;
+  ERL_NIF_TERM res, errcode = 0;
   if (doc.is_scalar()) {
     // we have a special case where the JSON document is a single document...
     switch (doc.type()) {
-      case simdjson::ondemand::json_type::number:
-        res = decode_number(doc.get_raw_json_string());
+      case ondemand::json_type::number:
+        res = decode_number(doc).second;
         break;
-      case simdjson::ondemand::json_type::string:
-        res = decode_raw_string(doc.get_raw_json_string());
+      case ondemand::json_type::string:
+        res = unescape_string(doc.get_raw_json_string(), doc.raw_json_token().value_unsafe().size(), nullptr, errcode);
+        if (errcode) [[unlikely]] return raise_error(errcode, "Failed to decode string");
+        assert(res);
         break;
-      case simdjson::ondemand::json_type::boolean:
+      case ondemand::json_type::boolean:
         res = doc.get_bool() ? AM_TRUE : AM_FALSE;
         break;
-      case simdjson::ondemand::json_type::null:
+      case ondemand::json_type::null:
         // We check that the value is indeed null
         // otherwise: an error is thrown.
-        if (doc.is_null()) res = am_null;
+        res = doc.is_null() ? m_opts.null_term : raise_error(AM_ERROR, "NULL expected");
         break;
-      case simdjson::ondemand::json_type::array:
-      case simdjson::ondemand::json_type::object:
+      case ondemand::json_type::array:
+      case ondemand::json_type::object:
       default:
-        res = AM_UNDEFINED;
-        std::unreachable(); // impossible
+        // This is impossible
+        res = raise_error(AM_ERROR, "Unreachable code");
     }
   } else {
-    simdjson::ondemand::value val = doc;
-    res = recursive_processor(val);
+    ondemand::value val = doc;
+    res = recursive_processor(val).second;
   }
 
+  assert(res);
+
   if (!doc.at_end())
-    return raise_error(m_env,AM_BADARG, "Unexpectedly tokens after the end of the json");
+    return raise_error(AM_BADARG, "Unexpectedly tokens after the end of the json");
 
   return res;
 }
 
-ERL_NIF_TERM OnDemandDecoder::decode_number(simdjson::ondemand::raw_json_string in) noexcept {
-  using namespace simdjson::SIMDJSON_IMPLEMENTATION::numberparsing;
-
-  bool   is_bigint;
-  size_t digit_count;
-  Writer writer(m_env);
-
-  auto   str = reinterpret_cast<const uint8_t*>(in.raw());
-  auto   err = number_parsing::parse_number(str, writer, is_bigint, digit_count);
-  if    (err) [[unlikely]] {
-    if (err == NUMBER_ERROR && is_bigint) {
-      auto res = BigInt.decode(m_env, str, str + digit_count);
-      if (!res)
-        return raise_error(m_env, AM_BADARG, "Failed to decode big number");
-    }
-    return raise_error(m_env, err);
-  }
-  if (writer.error()) [[unlikely]]
-    return raise_error(m_env, AM_ERROR, writer.error());
-
-  return writer.value();
-}
-
-ERL_NIF_TERM OnDemandDecoder::decode_raw_string(ondemand::raw_json_string in) {
-  std::string_view v = m_parser.unescape(in, false);
-  return make_binary(m_env, v);
-}
-
-
 std::pair<bool, ERL_NIF_TERM>
-OnDemandDecoder::recursive_processor
-(
-  ErlNifEnv* env,
-  ValueType  element
-)
+OnDemandDecoder::recursive_processor(ondemand::value element)
 {
   switch (element.type()) {
-    case simdjson::ondemand::json_type::array: {
+    case ondemand::json_type::array: {
       std::vector<ERL_NIF_TERM> items;
       for (auto child : element.get_array()) {
-        auto res = recursive_processor(env, child.value());
+        auto res = recursive_processor(child.value());
         if (!res.first) [[unlikely]] {
           release_binaries(items);
           return res;
         }
         items.push_back(res.second);
       }
-      return std::make_pair(true, enif_make_list_from_array(env, items.data(), items.size()));
+      return std::make_pair(true, enif_make_list_from_array(m_env, items.data(), items.size()));
     }
-    case simdjson::ondemand::json_type::object: {
+    case ondemand::json_type::object: {
       std::vector<ERL_NIF_TERM> keys;
       std::vector<ERL_NIF_TERM> vals;
+      std::unordered_set<std::string> seen;
+      ERL_NIF_TERM errcode;
+      auto pseen   = m_opts.dedupe_keys ? &seen : nullptr;
       for (auto field : element.get_object()) {
-        keys.push_back(make_binary(env, field.key()));
-        auto res = recursive_processor(env, field.value());
+        // TODO: add error checking for field.key?
+        auto k = unescape_string(field.key(), field.key_raw_json_token().value_unsafe().size(), pseen, errcode);
+        if (errcode) [[unlikely]]
+          goto ERR;
+        if (!k) [[unlikely]]
+          continue;
+        keys.push_back(k);
+        auto res = recursive_processor(field.value());
         if (!res.first) [[unlikely]] {
           release_binaries(keys);
           release_binaries(vals);
@@ -162,53 +147,109 @@ OnDemandDecoder::recursive_processor
         vals.push_back(res.second);
       }
       ERL_NIF_TERM m;
-      if (!enif_make_map_from_arrays(env, keys.data(), vals.data(), keys.size(), &m)) [[unlikely]] {
-        release_binaries(keys);
-        release_binaries(vals);
-        return std::make_pair(false,
-          enif_raise_exception(env,
-            enif_make_tuple2(env, AM_DUP_KEYS_FOUND, make_binary("Dup keys found in JSON object"))));
+      if (m_opts.return_maps) {
+        if (!enif_make_map_from_arrays(m_env, keys.data(), vals.data(), keys.size(), &m)) [[unlikely]] {
+          errcode = AM_DUP_KEYS_FOUND;
+          goto ERR;
+        }
+      } else {
+        std::vector<ERL_NIF_TERM> v;
+        v.resize(keys.size());
+        for (size_t i=0; i < v.size(); ++i)
+          v[i] = enif_make_tuple2(m_env, keys[i], vals[i]);
+        m = enif_make_list_from_array(m_env, v.data(), v.size());
+        m = enif_make_tuple1(m_env, m);
       }
       return std::make_pair(true, m);
+    ERR:
+      release_binaries(keys);
+      release_binaries(vals);
+      return std::make_pair(false,
+        raise_error(errcode, "Dup keys found in JSON object"));
     }
-    case simdjson::ondemand::json_type::number: {
-      double v;
-      auto err = element.get(v);
-      if (err != SUCCESS) [[unlikely]]
-        return std::make_pair(false, enif_raise_exception(env, error_reason(m_env, err.error())));
-      return std::make_pair(true, enif_make_double(env, v));
+    case ondemand::json_type::number:
+      return decode_number(element);
+
+    case ondemand::json_type::string: {
+      ERL_NIF_TERM err = 0;
+      auto s = unescape_string(element.get_raw_json_string(), element.raw_json_token().size(), nullptr, err);
+      if (err) [[unlikely]] return std::make_pair(false, raise_error(AM_ENOMEM, "Not enough memory"));
+      assert(s);
+      return std::make_pair(true, s);
     }
-    case simdjson::ondemand::json_type::string: {
-      auto err = element.get_raw_json_string();
-      if (err.error() != SUCCESS) [[unlikely]]
-        return std::make_pair(false, enif_raise_exception(m_env, error_reason(m_env, err.error())));
-      return std::make_pair(true, make_binary(m_env, err.value()));
-    }
-    case simdjson::ondemand::json_type::boolean: {
+    case ondemand::json_type::boolean: {
       bool val = false;
       auto err = element.get(val);
       return std::make_pair(err == SUCCESS, val ? AM_TRUE : AM_FALSE);
     }
-    case simdjson::ondemand::json_type::null:
+    case ondemand::json_type::null:
       // We check that the value is indeed null
       // otherwise: an error is thrown.
       return element.is_null()
-          ? std::make_pair(true, am_null)
-          : enif_raise_exception(env, make_tuple2(m_env, AM_NULL, "Invalid NULL"));
+          ? std::make_pair(true,  m_opts.null_term)
+          : std::make_pair(false, raise_error(AM_NULL, "Invalid NULL"));
+    default:
+      return std::make_pair(false, raise_error(AM_ERROR, "Unhandled switch clause"));
+  }
+}
+
+template <typename T>
+std::pair<bool, ERL_NIF_TERM>
+OnDemandDecoder::decode_number(T& val) noexcept {
+  auto res = val.get_number();
+  if (res.error() != SUCCESS) [[unlikely]] {
+    std::string_view str = val.raw_json();
+    auto val = BigInt::decode(m_env, str.begin(), str.end());
+    return std::make_pair(true, val);
+  }
+  return decode_number(res.value_unsafe());
+}
+
+std::pair<bool, ERL_NIF_TERM>
+OnDemandDecoder::decode_number(ondemand::number num) noexcept {
+  using ondemand::number_type;
+
+  switch (num.get_number_type()) {
+    case number_type::floating_point_number:
+      return std::make_pair(true, enif_make_double(m_env, num.get_double()));
+    case number_type::signed_integer:
+      return std::make_pair(true, enif_make_int64(m_env, num.get_int64()));
+    case number_type::unsigned_integer:
+      return std::make_pair(true, enif_make_uint64(m_env, num.get_uint64()));
+    case number_type::big_integer:
+      // This should be handled by the "if" clause in the beginning of this function
+      return std::make_pair(false, raise_error(AM_ERROR, "Unexpected number type"));
     default:
       std::unreachable();
   }
 }
 
-struct simdjson_ondemand {
-  using StringType = std::string_view;
-
-  simdjson2msgpack parser{};
-
-  bool run(simdjson::padded_string &json, char *buffer, std::string_view &result) {
-    result = parser.to_msgpack(json, reinterpret_cast<uint8_t *>(buffer));
-    return true;
+inline ERL_NIF_TERM OnDemandDecoder::
+unescape_string(ondemand::raw_json_string in, size_t size, std::unordered_set<std::string>* seen, ERL_NIF_TERM& err) {
+  auto dst = reinterpret_cast<uint8_t*>(m_buff.data());
+  std::string_view v = m_parser.unescape(in, dst);
+  if (seen) {
+    auto [it, ok] = seen->insert(std::string(v));
+    if (!ok) [[unlikely]]
+      return err = 0;
   }
-};
+  err = 0;
+  return make_binary(m_env, v);
+}
+
+ERL_NIF_TERM OnDemandDecoder::raise_error(ERL_NIF_TERM reason, const char* err)
+{
+  return ::raise_error(m_env, reason, err);
+}
+
+void OnDemandDecoder::release_binaries(std::vector<ERL_NIF_TERM>& items)
+{
+  for (auto t : items)
+    if (enif_is_binary(m_env, t)) {
+      ErlNifBinary bin;
+      enif_inspect_binary(m_env, t, &bin);
+      enif_release_binary(&bin);
+    }
+}
 
 } // namespace simdjsone

@@ -190,19 +190,24 @@ encode_test_() ->
     ?_assertEqual(<<"null">>, encode(nil,  [use_nil])),
     ?_assertEqual(<<"{\"a\":1}">>, encode(#{a => 1})),
     ?_assertEqual(<<"[1000,\"a\"]">>, encode([1000, <<"a">>])),
+    ?_assertEqual(<<"[]">>,     encode([])),
 
     fun() -> ok end
   ].
 
 decode_test_() ->
   [
+    ?_assertEqual([],                            decode("[]")),
+    ?_assertEqual(null,                          decode("null")),
+    ?_assertEqual(1,                             decode("1")),
+    ?_assertEqual(12345678901234567890123,       decode("12345678901234567890123")),
     ?_assertEqual([1,2,3],                       decode("[1,2,3]")),
     ?_assertEqual(#{<<"a">> => 1,<<"b">> => 2},  decode("{\"a\": 1, \"b\": 2}")),
     ?_assertEqual({[{<<"a">>, 1},{<<"b">>, 2}]}, decode("{\"a\": 1, \"b\": 2}", [object_as_tuple])),
     ?_assertEqual({[{<<"a">>, 1},{<<"a">>, 2}]}, decode("{\"a\": 1, \"a\": 2}", [object_as_tuple])),
     ?_assertEqual({[{<<"a">>, 1}]},              decode("{\"a\": 1, \"a\": 2}", [object_as_tuple, dedupe_keys])),
     ?_assertEqual(#{<<"a">> => 1},               decode("{\"a\": 1, \"a\": 2}", [dedupe_keys])),
-    ?_assertException(error, dup_keys_found,     decode("{\"a\": 1, \"a\": 2}")),
+    ?_assertException(error, {dup_keys_found,_}, decode("{\"a\": 1, \"a\": 2}")),
     ?_assertEqual(null,                          decode("null")),
     ?_assertEqual(nil,                           decode("null", [use_nil])),
     ?_assertEqual(null_atom,                     decode("null", [{null_term, null_atom}]))

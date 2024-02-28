@@ -1,0 +1,22 @@
+{
+
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "name": "(gdb) Attach",
+          "type": "cppdbg",
+          "request": "attach",
+          "program": "/home/serge/.asdf/installs/erlang/26.2.2/erts-14.2.2/bin/beam.smp",
+          "processId": "12792",
+          "MIMode": "gdb",
+          "cwd":"${workspaceRoot}",
+          "setupCommands": [
+              {
+                  "description": "Enable pretty-printing for gdb",
+                  "text": "-enable-pretty-printing",
+                  "ignoreFailures": true
+              }
+          ]
+      }
+  ]
+}
