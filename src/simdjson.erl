@@ -201,7 +201,7 @@ decode_test_() ->
     ?_assertEqual(null,                          decode("null")),
     ?_assertEqual(1,                             decode("1")),
     ?_assertEqual(1.0,                           decode("1.0")),
-    ?_assertEqual("abc",                         decode("\"abc\"")),
+    ?_assertEqual(<<"abc">>,                     decode("\"abc\"")),
     ?_assertEqual(12345678901234567890123,       decode("12345678901234567890123")),
     ?_assertEqual([12312345123412341341234134,
                    234542345243524524352435243], simdjson:decode("[12312345123412341341234134,
