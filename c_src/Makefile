@@ -50,7 +50,7 @@ COMPILE_CPP = $(CXX) $(CXXFLAGS) $(CPPFLAGS)
 
 # Targets
 
-all: deps $(SO_OUTPUT) ttt
+all: deps $(SO_OUTPUT)
 
 deps: simdjson.h simdjson.cpp
 

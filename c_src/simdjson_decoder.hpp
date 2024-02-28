@@ -164,8 +164,7 @@ OnDemandDecoder::recursive_processor(ondemand::value element)
     ERR:
       release_binaries(keys);
       release_binaries(vals);
-      return std::make_pair(false,
-        raise_error(errcode, "Dup keys found in JSON object"));
+      return std::make_pair(false, ::raise_error(m_env, ERL_NIF_TERM(errcode)));
     }
     case ondemand::json_type::number:
       return decode_number(element);
