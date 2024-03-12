@@ -391,6 +391,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
   AM_TRUE                       = enif_make_atom(env, "true");
   AM_FALSE                      = enif_make_atom(env, "false");
   AM_BADARG                     = enif_make_atom(env, "badarg");
+  AM_EBIGINT                    = enif_make_atom(env, "ebigint");
   AM_NIL                        = enif_make_atom(env, "nil");
   AM_NULL =             am_null = enif_make_atom(env, "null");
   AM_ENOMEM                     = enif_make_atom(env, "enomem");

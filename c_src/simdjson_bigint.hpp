@@ -37,28 +37,35 @@ struct BigInt {
     }
 
     std::vector<unsigned char> result;
-    result.reserve(4 + approx_digits(end - begin));
-    result.push_back(131);         // Version byte
-    result.push_back(110);         // Small BIG integer
-    result.push_back(0);           // Length placeholder
-    result.push_back(neg);         // Sign byte
-    convert_to_base256(result, result.begin()+4, begin, end);
-    auto size = result.size() - 4; // Get byte length
+    auto len    = approx_digits(end - begin);
+    auto offset = 3;
+    constexpr const size_t add_size = 4 + 3 /* maybe Large Big integer */; 
+    result.reserve(len + add_size);
+    result.push_back(131);
+    result.push_back(int('o'));           // Large BIG integer ERL_LARGE_BIG_EXT (111)
+    result.push_back(0);
+    result.push_back(131);                // Version byte
+    result.push_back(int('n'));           // Small BIG integer ERL_SMALL_BIG_EXT (110)
+    result.push_back(0);                  // Length placeholder
+    result.push_back(neg);                // Sign byte
+    convert_to_base256(result, result.begin() + add_size, begin, end);
+    auto size = result.size() - add_size; // Get byte length
 
-    if (size > 255) [[unlikely]]
-      return 0;
-
-    result[2] = size;              // Update byte length
+    if (size <= 255) [[likely]]
+      result[3+2] = size;                 // Update byte length
+    else {
+      put32be(result.data() + 2, size);   // For Large BIG integers the length is 4 bytes
+      offset = 0;
+    }
 
     ERL_NIF_TERM out;
-    auto data = &*result.begin();
-    if (!enif_binary_to_term(env, data, result.size(), &out, 0)) [[unlikely]]
+    if (!enif_binary_to_term(env, result.data()+offset, result.size()-offset, &out, 0)) [[unlikely]]
       return 0;
     return out;
   }
 
 private:
-  static void convert_to_base256(
+  static inline void convert_to_base256(
     std::vector<unsigned char>& result,
     std::vector<unsigned char>::iterator it,
     const char* begin, const char* end)
@@ -71,12 +78,19 @@ private:
     }
   }
 
-  static size_t approx_digits(size_t decimal_dig_count) {
+  static inline size_t approx_digits(size_t decimal_dig_count) {
     const auto factor = std::log(10) / std::log(256);
     return std::ceil(factor * decimal_dig_count);
   }
 
-  static void add
+  static inline void put32be(uint8_t* s, uint32_t n) {
+    *s++ = (n >> 24) & 0xff;
+    *s++ = (n >> 16) & 0xff;
+    *s++ = (n >>  8) & 0xff;
+    *s   = n         & 0xff;
+  }
+
+  static inline void add
   (
     std::vector<unsigned char>&          num,
     std::vector<unsigned char>::iterator start,
@@ -91,7 +105,7 @@ private:
       num.push_back(digit);
   }
 
-  static void mul10(
+  static inline void mul10(
     std::vector<unsigned char>& num,
     std::vector<unsigned char>::iterator start
   ) {

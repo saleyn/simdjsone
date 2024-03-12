@@ -206,6 +206,14 @@ decode_test_() ->
     ?_assertEqual([12312345123412341341234134,
                    234542345243524524352435243], simdjson:decode("[12312345123412341341234134,
                                                                    234542345243524524352435243]")),
+    %% Small Big integer decoding tests
+    ?_assertEqual(binary_to_integer(binary:copy(<<"1">>, 615)),
+                                                 decode(binary:copy(<<"1">>, 615))),
+    ?_assertEqual(binary_to_integer(<<"-", (binary:copy(<<"1">>, 615))/binary>>),
+                                                 decode(<<"-", (binary:copy(<<"1">>, 615))/binary>>)),
+    %% Large Big integer decoding tests
+    ?_assertEqual(binary_to_integer(binary:copy(<<"9">>, 6000)),
+                                                 decode(binary:copy(<<"9">>, 6000))),
     ?_assertEqual([1,2,3],                       decode("[1,2,3]")),
     ?_assertEqual(#{<<"a">> => 1,<<"b">> => 2},  decode("{\"a\": 1, \"b\": 2}")),
     ?_assertEqual({[{<<"a">>, 1},{<<"b">>, 2}]}, decode("{\"a\": 1, \"b\": 2}", [object_as_tuple])),

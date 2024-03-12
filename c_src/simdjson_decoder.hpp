@@ -199,7 +199,7 @@ OnDemandDecoder::decode_number(T& val) noexcept {
   if (res.error() != SUCCESS) [[unlikely]] {
     std::string_view str = val.raw_json();
     auto val = BigInt::decode(m_env, str.begin(), str.end());
-    return std::make_pair(true, val);
+    return std::make_pair(val != 0, val ? val : AM_EBIGINT);
   }
   return decode_number(res.value_unsafe());
 }
