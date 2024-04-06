@@ -15,6 +15,13 @@ clean:
 test:
 	rebar3 eunit
 
+publish:
+	rebar3 hex $(if $(replace),publish --replace,cut)
+
+retire:
+	@[ -z "$(vsn)" ] && echo "Usage: make retire vsn=X.Y.Z" && exit 1 || true
+	rebar3 hex retire simdjsone $(vsn) deprecated --message "Deprecated"
+
 nif:
 	make -C c_src
 
