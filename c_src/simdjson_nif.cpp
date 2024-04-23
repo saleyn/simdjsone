@@ -129,7 +129,11 @@ static ERL_NIF_TERM parse_opts(ErlNifEnv* env, ERL_NIF_TERM options, DecodeOpts&
 static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin, const DecodeOpts& opts)
 {
   simdjsone::OnDemandDecoder decoder(env, opts);
-  return decoder.to_json(bin);
+  try {
+    return decoder.to_json(bin);
+  } catch (simdjson_error const& e) {
+    return enif_raise_exception(env, error_reason(env, e.error()));
+  }
 }
 
 static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -329,7 +333,7 @@ ERL_NIF_TERM error_reason(ErlNifEnv* env, error_code err)
   switch (err) {
     case CAPACITY:                   return enif_make_tuple2(env, AM_CAPACITY,                   make_binary(env, "This parser can't support a document that big"));
     case MEMALLOC:                   return enif_make_tuple2(env, AM_MEMALLOC,                   make_binary(env, "Error allocating memory, most likely out of memory"));
-    case TAPE_ERROR:                 return enif_make_tuple2(env, AM_TAPE_ERROR,                 make_binary(env, "Something went wrong, this is a generic error"));
+    case TAPE_ERROR:                 return enif_make_tuple2(env, AM_TAPE_ERROR,                 make_binary(env, "The JSON document has an improper structure: missing or superfluous commas, braces, missing keys, etc."));
     case DEPTH_ERROR:                return enif_make_tuple2(env, AM_DEPTH_ERROR,                make_binary(env, "Your document exceeds the user-specified depth limitation"));
     case STRING_ERROR:               return enif_make_tuple2(env, AM_STRING_ERROR,               make_binary(env, "Problem while parsing a string"));
     case T_ATOM_ERROR:               return enif_make_tuple2(env, AM_T_ATOM_ERROR,               make_binary(env, "Problem while parsing an atom starting with 't'"));
