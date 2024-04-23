@@ -312,10 +312,17 @@ static ERL_NIF_TERM minify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ERL_NIF_TERM int_to_bin_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   assert(argc == 1);
+  #if __APPLE__
+  long n;
+
+  if (!enif_get_long(env, argv[0], &n))
+    return enif_make_badarg(env);
+  #else
   int64_t n;
 
   if (!enif_get_int64(env, argv[0], &n))
     return enif_make_badarg(env);
+  #endif
 
   char buf[64];
   auto end = util::lltoa(buf, n);

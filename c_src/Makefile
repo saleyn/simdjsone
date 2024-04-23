@@ -28,12 +28,16 @@ endif
 
 UNAME_SYS  := $(shell uname -s)
 ifeq ($(UNAME_SYS),Linux)
-  CXXFLAGS ?= -mavx2
+  ifeq ($(shell gcc -dM -E - </dev/null | awk '/__AVX2__/ { print $$3 }'),1)
+    CXXFLAGS ?= -mavx2
+  endif
 else ifeq ($(UNAME_SYS),Darwin)
-  CXXFLAGS ?= -pie
+  CXXFLAGS ?= -fPIE
   LDFLAGS  += -flat_namespace -undefined suppress
 else ifeq ($(UNAME_SYS),FreeBSD)
-  CXXFLAGS ?= -mavx2
+  ifeq ($(shell gcc -dM -E - </dev/null | awk '/__AVX2__/ { print $$3 }'),1)
+    CXXFLAGS ?= -mavx2
+  endif
 endif
 
 ADD_FLAGS  += -fPIC -finline-functions -Wall -std=c++20
