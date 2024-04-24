@@ -45,7 +45,8 @@ CXXFLAGS   += $(ADD_FLAGS) $(OPTIMIZE) $(ERL_CXXFLAGS)
 LDFLAGS    += $(ERL_LDFLAGS) -lei -shared
 
 SRC_DIR     = $(CURDIR)
-SO_OUTPUT  ?= $(BASEDIR)/priv/$(PROJECT).so
+PRIV_DIR   ?= $(if $(REBAR_BARE_COMPILER_OUTPUT_DIR),$(REBAR_BARE_COMPILER_OUTPUT_DIR),$(BASEDIR))/priv
+SO_OUTPUT  ?= $(PRIV_DIR)/$(PROJECT).so
 
 SOURCES    := simdjson.cpp simdjson_nif.cpp
 OBJECTS     = $(SOURCES:%.cpp=%.o)
