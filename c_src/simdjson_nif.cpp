@@ -202,7 +202,7 @@ static ERL_NIF_TERM parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
   auto res  = parser.parse_into_document(*p, (const char*)bin.data, bin.size);
 
   if (res.error()) [[unlikely]]
-    return enif_make_string(env, error_message(res.error()), ERL_NIF_LATIN1);
+    return raise_error(env, res.error());
 
   ErlNifMonitor mon;
 
@@ -254,7 +254,7 @@ static ERL_NIF_TERM get_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   auto elm  = doc->root().at_pointer(path);
 
   if  (elm.error()) [[unlikely]]
-    return enif_make_string(env, error_message(elm.error()), ERL_NIF_LATIN1);
+    return raise_error(env, elm.error());
 
   try {
     return make_term(env, elm.value_unsafe(), opts);
