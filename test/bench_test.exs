@@ -13,6 +13,7 @@ defmodule Simdjsone.Bench do
         "jason"     => fn -> Jason.decode(bin) end,
         "jiffy"     => fn -> :jiffy.decode(bin, [:return_maps]) end,
         "poison"    => fn -> Poison.decode!(bin) end,
+        "json"      => fn -> :json.decode(bin) end,
         "simdjsone" => fn -> :simdjson.decode(bin) end
       }
     end

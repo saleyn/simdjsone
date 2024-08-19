@@ -303,6 +303,7 @@ benchmark(N, Bin, NameFuns) ->
   L = [
     {"simdjsone", fun(B) -> simdjson:decode(B)             end},
     {"jiffy",     fun(B) -> jiffy:decode(B, [return_maps]) end},
+    {"json",      fun(B) -> json:decode(B)                 end},
     {"thoas",     fun(B) -> {ok, R} = thoas:decode(B),  R  end},
     {"euneus",    fun(B) -> {ok, R} = euneus:decode(B), R  end}
   ] ++ NameFuns,
