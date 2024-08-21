@@ -152,8 +152,7 @@ static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   ErlNifBinary bin;
-  ERL_NIF_TERM args[2];
-  static ERL_NIF_TERM s_nil_list = enif_make_list(env, 0);
+  ERL_NIF_TERM args[2] = {0, argc > 1 ? argv[1] : enif_make_list(env, 0)};
 
   assert(argc >= 1 && argc <= 2);
 
@@ -162,7 +161,6 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
       goto CALL_DECODE;
 
     args[0] = argv[0];
-    args[1] = argc > 1 ? argv[1] : s_nil_list;
   }
   else if (!enif_inspect_iolist_as_binary(env, argv[0], &bin)) [[unlikely]]
     return enif_make_badarg(env);
@@ -170,14 +168,14 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     goto CALL_DECODE;
   else {
     args[0] = enif_make_binary(env, &bin);
-    args[1] = argc > 1 ? argv[1] : s_nil_list;
   }
 
   return enif_schedule_nif(env, "simdjson_decode",
                            ERL_NIF_DIRTY_JOB_CPU_BOUND, decode_dirty, argc, args);
 CALL_DECODE:
   DecodeOpts opts;
-  auto res = parse_opts(env, argv[1], opts);
+  assert(args[1]);
+  auto res = parse_opts(env, args[1], opts);
   return res == AM_OK ? decode(env, bin, opts) : res;
 }
 
