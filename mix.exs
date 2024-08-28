@@ -33,16 +33,16 @@ defmodule Simdjsone.MixProject do
   end
 
   defp get_vsn() do
-    m =
-      __MODULE__
-      |> Atom.to_string()
-      |> String.split(".")
-      |> Enum.drop(1)
-      |> Enum.take(1)
-      |> hd()
-      |> String.downcase
+    # m =
+    #   __MODULE__
+    #   |> Atom.to_string()
+    #   |> String.split(".")
+    #   |> Enum.drop(1)
+    #   |> Enum.take(1)
+    #   |> hd()
+    #   |> String.downcase
 
-    "src/#{m}.app.src"
+    "src/simdjson.app.src"
     |> :file.consult()
     |> elem(1)
     |> hd()
