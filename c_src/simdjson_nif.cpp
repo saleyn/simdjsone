@@ -152,11 +152,14 @@ static ERL_NIF_TERM decode_dirty(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   ErlNifBinary bin;
-  ERL_NIF_TERM args[2] = {0, argc > 1 ? argv[1] : enif_make_list(env, 0)};
+  static const ERL_NIF_TERM s_empty_list = enif_make_list(env, 0);
+  ERL_NIF_TERM args[2];
 
   assert(argc >= 1 && argc <= 2);
 
   if (enif_inspect_binary(env, argv[0], &bin)) [[likely]] {
+    args[1] = argc > 1 ? argv[1] : s_empty_list;
+
     if (bin.size < TIMESLICE_BYTES)
       goto CALL_DECODE;
 
@@ -164,10 +167,12 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
   }
   else if (!enif_inspect_iolist_as_binary(env, argv[0], &bin)) [[unlikely]]
     return enif_make_badarg(env);
-  else if (bin.size < TIMESLICE_BYTES)
+  else if (bin.size < TIMESLICE_BYTES) {
+    args[1] = argc > 1 ? argv[1] : s_empty_list;
     goto CALL_DECODE;
-  else {
+  } else {
     args[0] = enif_make_binary(env, &bin);
+    args[1] = argc > 1 ? argv[1] : s_empty_list;
   }
 
   return enif_schedule_nif(env, "simdjson_decode",
