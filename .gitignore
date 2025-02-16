@@ -3,6 +3,7 @@
 *.crashdump
 *.beam
 .vscode/bookmarks.json
+c_src/.vscode/
 mix.*
 deps/
 doc/
