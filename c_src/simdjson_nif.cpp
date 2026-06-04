@@ -333,6 +333,46 @@ static ERL_NIF_TERM int_to_bin_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
   return make_binary(env, std::string_view(buf, end - buf));
 }
 
+static ERL_NIF_TERM encode_bigint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  assert(argc == 1);
+
+  // First try regular integer conversion for small numbers
+  ErlNifSInt64 val;
+  if (enif_get_int64(env, argv[0], &val)) {
+    char buf[32];
+    auto end = util::lltoa(buf, val);
+    return enif_make_tuple2(env, AM_OK, make_binary(env, std::string_view(buf, end - buf)));
+  }
+
+  // Try big integer using fast implementation
+  auto json_str = simdjsone::BigInt::encode(env, argv[0]);
+
+  if (json_str.empty()) [[unlikely]]
+    return enif_make_tuple2(env, AM_ERROR, make_binary(env, "invalid_bigint"));
+
+  return enif_make_tuple2(env, AM_OK, make_binary(env, json_str));
+}
+
+static ERL_NIF_TERM decode_bigint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  assert(argc == 1);
+
+  ErlNifBinary bin;
+  if (!enif_inspect_binary(env, argv[0], &bin) &&
+      !enif_inspect_iolist_as_binary(env, argv[0], &bin)) [[unlikely]]
+    return enif_make_badarg(env);
+
+  auto result = simdjsone::BigInt::decode(env,
+    reinterpret_cast<const char*>(bin.data),
+    reinterpret_cast<const char*>(bin.data) + bin.size);
+
+  if (result == 0) [[unlikely]]
+    return enif_make_tuple2(env, AM_ERROR, make_binary(env, "invalid_number_format"));
+
+  return enif_make_tuple2(env, AM_OK, result);
+}
+
 ERL_NIF_TERM error_reason(ErlNifEnv* env, const char* err)
 {
   return enif_make_tuple2(env, AM_ERROR, make_binary(env, err));
@@ -505,15 +545,17 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_N
 }
 
 static ErlNifFunc funcs[] = {
-  {"decode",      1, decode_nif},
-  {"decode",      2, decode_nif},
-  {"parse",       1, parse_nif},
-  {"get",         2, get_nif},
-  {"get",         3, get_nif},
-  {"minify",      1, minify_nif},
-  {"encode_init", 2, encode_init},
-  {"encode_iter", 3, encode_iter},
-  {"int_to_bin",  1, int_to_bin_nif},
+  {"decode",        1, decode_nif},
+  {"decode",        2, decode_nif},
+  {"parse",         1, parse_nif},
+  {"get",           2, get_nif},
+  {"get",           3, get_nif},
+  {"minify",        1, minify_nif},
+  {"encode_init",   2, encode_init},
+  {"encode_iter",   3, encode_iter},
+  {"int_to_bin",    1, int_to_bin_nif},
+  {"encode_bigint", 1, encode_bigint_nif},
+  {"decode_bigint", 1, decode_bigint_nif},
 };
 
 ERL_NIF_INIT(simdjson, funcs, load, nullptr, upgrade, nullptr);
