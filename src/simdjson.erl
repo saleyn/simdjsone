@@ -13,7 +13,7 @@
 %%%----------------------------------------------------------------------------
 -module(simdjson).
 -export([decode/1, decode/2, parse/1, get/2, get/3, minify/1, encode/1, encode/2]).
--export([int_to_bin/1]).
+-export([int_to_bin/1, encode_bigint/1, decode_bigint/1]).
 
 -compile({no_auto_import, [get/2]}).
 
@@ -176,6 +176,16 @@ finish_encode(_, _) ->
 %% @doc Fast integer to binary conversion
 -spec int_to_bin(integer()) -> binary().
 int_to_bin(_Int) ->
+  ?NOT_LOADED_ERROR.
+
+%% @doc Encode a big integer to its JSON string representation
+-spec encode_bigint(integer()) -> {ok, binary()} | {error, binary()}.
+encode_bigint(_BigInt) ->
+  ?NOT_LOADED_ERROR.
+
+%% @doc Decode a JSON number string to a big integer
+-spec decode_bigint(binary()|list()) -> {ok, integer()} | {error, binary()}.
+decode_bigint(_NumberString) ->
   ?NOT_LOADED_ERROR.
 
 %%%----------------------------------------------------------------------------
