@@ -20,8 +20,22 @@ endif
 CXX       ?= g++
 CXX_VSN   ?= $(shell $(CXX) --version | sed -n '1s/^[^0-9]\+\([0-9]\+\)\(.[0-9-]\)\+.*$$/\1/p')
 
+# Performance optimization levels
 ifeq ($(NIF_DEBUG),0)
-  OPTIMIZE  = -O3 -DNDEBUG
+  # Release build optimizations
+  OPTIMIZE  = -O3 -DNDEBUG -flto -fno-fat-lto-objects
+
+  # Add native architecture optimizations (can be disabled with NATIVE=0)
+  ifneq ($(NATIVE),0)
+    OPTIMIZE += -march=native -mtune=native
+  endif
+
+  # Profile-guided optimization support (set PGO=1 to enable)
+  ifeq ($(PGO_GENERATE),1)
+    OPTIMIZE += -fprofile-generate
+  else ifeq ($(PGO_USE),1)
+    OPTIMIZE += -fprofile-use -fprofile-correction
+  endif
 else
   OPTIMIZE  = -O0 -g
 endif
@@ -42,7 +56,13 @@ endif
 
 ADD_FLAGS  += -fPIC -finline-functions -Wall -std=c++2a
 CXXFLAGS   += $(ADD_FLAGS) $(OPTIMIZE) $(ERL_CXXFLAGS)
-LDFLAGS    += $(ERL_LDFLAGS) -lei -shared
+
+# Add LTO to linker flags for release builds
+ifeq ($(NIF_DEBUG),0)
+  LDFLAGS += $(ERL_LDFLAGS) -lei -shared -flto
+else
+  LDFLAGS += $(ERL_LDFLAGS) -lei -shared
+endif
 
 SRC_DIR     = $(CURDIR)
 PRIV_DIR   ?= $(if $(REBAR_BARE_COMPILER_OUTPUT_DIR),$(REBAR_BARE_COMPILER_OUTPUT_DIR),$(BASEDIR))/priv

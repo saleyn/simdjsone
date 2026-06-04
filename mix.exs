@@ -29,6 +29,7 @@ defmodule Simdjsone.MixProject do
       {:thoas,   "~> 1.0",   only: :test},
       {:euneus,  "~> 2.0",   only: :test},
       {:poison,  "~> 6.0",   only: :test},
+      {:torque,  "~> 0.1.9", only: :test},
     ]
   end
 

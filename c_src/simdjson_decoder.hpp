@@ -3,6 +3,7 @@
 #include <erl_nif.h>
 #include <utility>
 #include <unordered_set>
+#include <unordered_map>
 #include "simdjson.h"
 #include "simdjson_atoms.hpp"
 #include "simdjson_bigint.hpp"
@@ -25,19 +26,28 @@ namespace std {
 
 namespace simdjsone {
 
+enum class DedupeMode {
+  NONE,   // false - allow duplicates (will cause map creation failure)
+  FIRST,  // first - first key wins
+  LAST    // true/last - last key wins (torque compatible)
+};
+
 struct DecodeOpts {
   DecodeOpts()
   : return_maps(true)
   , null_term(am_null)
-  , dedupe_keys(false)
+  , dedupe_mode(DedupeMode::NONE)
   {}
 
   bool          return_maps;
   ERL_NIF_TERM  null_term;
-  bool          dedupe_keys;
+  DedupeMode    dedupe_mode;
 };
 
 using namespace simdjson;
+
+// Thread-local parser cache to avoid constructor overhead (torque optimization)
+thread_local std::unique_ptr<ondemand::parser> g_cached_parser;
 
 struct OnDemandDecoder {
   OnDemandDecoder(ErlNifEnv* env, const DecodeOpts& opts);
@@ -52,23 +62,29 @@ private:
   void release_binaries(std::vector<ERL_NIF_TERM>& items);
   inline ERL_NIF_TERM raise_error(ERL_NIF_TERM, const char* err);
 
-  ondemand::parser m_parser;
-  ErlNifEnv*       m_env;
-  DecodeOpts       m_opts;
-  padded_string    m_buff;
+  ondemand::parser* m_parser;  // Now pointer to cached parser
+  ErlNifEnv*        m_env;
+  DecodeOpts        m_opts;
+  padded_string     m_buff;
 };
 
 OnDemandDecoder::OnDemandDecoder(ErlNifEnv* env, const DecodeOpts& opts)
   : m_env(env)
   , m_opts(opts)
-{}
+{
+  // Use thread-local cached parser to avoid constructor overhead
+  if (!g_cached_parser) {
+    g_cached_parser = std::make_unique<ondemand::parser>();
+  }
+  m_parser = g_cached_parser.get();
+}
 
 ERL_NIF_TERM OnDemandDecoder::to_json(ErlNifBinary const& bin) {
   padded_string json(reinterpret_cast<const char*>(bin.data), bin.size);
   auto buf = padded_string(bin.size);
   m_buff.swap(buf);
 
-  ondemand::document doc = m_parser.iterate(json);
+  ondemand::document doc = m_parser->iterate(json);
   ERL_NIF_TERM res, errcode = 0;
   if (doc.is_scalar()) {
     // we have a special case where the JSON document is a single document...
@@ -127,24 +143,72 @@ OnDemandDecoder::recursive_processor(ondemand::value element)
     case ondemand::json_type::object: {
       std::vector<ERL_NIF_TERM> keys;
       std::vector<ERL_NIF_TERM> vals;
-      std::unordered_set<std::string> seen;
+      std::unordered_map<std::string, size_t> key_positions;
       ERL_NIF_TERM errcode;
-      auto pseen   = m_opts.dedupe_keys ? &seen : nullptr;
+
+      if (m_opts.dedupe_mode != DedupeMode::NONE) {
+        key_positions.reserve(16);  // Pre-allocate for common case
+      }
+
       for (auto field : element.get_object()) {
         // TODO: add error checking for field.key?
-        auto k = unescape_string(field.key(), field.key_raw_json_token().value_unsafe().size(), pseen, errcode);
-        if (errcode) [[unlikely]]
-          goto ERR;
-        if (!k) [[unlikely]]
-          continue;
-        keys.push_back(k);
-        auto res = recursive_processor(field.value());
-        if (!res.first) [[unlikely]] {
-          release_binaries(keys);
-          release_binaries(vals);
-          return res;
+        auto dst = reinterpret_cast<uint8_t*>(m_buff.data());
+        std::string_view key_view = m_parser->unescape(field.key(), dst);
+        std::string key_str(key_view);
+        auto k = make_binary(m_env, key_view);
+
+        if (m_opts.dedupe_mode == DedupeMode::FIRST) {
+          auto it = key_positions.find(key_str);
+          if (it == key_positions.end()) [[likely]] {
+            // First occurrence of this key - add it
+            size_t pos = keys.size();
+            key_positions[key_str] = pos;
+            keys.push_back(k);
+            auto res = recursive_processor(field.value());
+            if (!res.first) [[unlikely]] {
+              release_binaries(keys);
+              release_binaries(vals);
+              return res;
+            }
+            vals.push_back(res.second);
+          }
+          // Ignore subsequent occurrences (first wins)
+        } else if (m_opts.dedupe_mode == DedupeMode::LAST) {
+          auto it = key_positions.find(key_str);
+          if (it != key_positions.end()) [[unlikely]] {
+            // Replace existing key/value (last wins)
+            size_t pos = it->second;
+            keys[pos] = k;
+            auto res = recursive_processor(field.value());
+            if (!res.first) [[unlikely]] {
+              release_binaries(keys);
+              release_binaries(vals);
+              return res;
+            }
+            vals[pos] = res.second;
+          } else [[likely]] {
+            // First occurrence of this key
+            size_t pos = keys.size();
+            key_positions[key_str] = pos;
+            keys.push_back(k);
+            auto res = recursive_processor(field.value());
+            if (!res.first) [[unlikely]] {
+              release_binaries(keys);
+              release_binaries(vals);
+              return res;
+            }
+            vals.push_back(res.second);
+          }
+        } else { // DedupeMode::NONE
+          keys.push_back(k);
+          auto res = recursive_processor(field.value());
+          if (!res.first) [[unlikely]] {
+            release_binaries(keys);
+            release_binaries(vals);
+            return res;
+          }
+          vals.push_back(res.second);
         }
-        vals.push_back(res.second);
       }
       ERL_NIF_TERM m;
       if (m_opts.return_maps) {
@@ -226,7 +290,7 @@ OnDemandDecoder::decode_number(ondemand::number num) noexcept {
 inline ERL_NIF_TERM OnDemandDecoder::
 unescape_string(ondemand::raw_json_string in, size_t size, std::unordered_set<std::string>* seen, ERL_NIF_TERM& err) {
   auto dst = reinterpret_cast<uint8_t*>(m_buff.data());
-  std::string_view v = m_parser.unescape(in, dst);
+  std::string_view v = m_parser->unescape(in, dst);
   if (seen) {
     auto [it, ok] = seen->insert(std::string(v));
     if (!ok) [[unlikely]]

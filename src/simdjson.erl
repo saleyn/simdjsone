@@ -27,17 +27,24 @@
   return_maps     |
   object_as_tuple |
   dedupe_keys     |
+  {dedupe_keys, false | true | first | last} |
   use_nil         |
   {null_term, atom()}.
 
 -type decode_opts() :: [decode_opt()].
 %% Decode options:
 %% <ul>
-%% <li>`return_maps'     - decode JSON object as map</li>
-%% <li>`object_as_tuple' - decode JSON object as a proplist wrapped in a tuple</li>
-%% <li>`dedup_keys'      - eliminate duplicate keys from a JSON object</li>
-%% <li>`use_nil'         - decode JSON "null" as `nil'</li>
-%% <li>`{null_term, V}'  - use the given value `V' for a JSON "null"</li>
+%% <li>`return_maps'        - decode JSON object as map</li>
+%% <li>`object_as_tuple'    - decode JSON object as a proplist wrapped in a tuple</li>
+%% <li>`dedupe_keys'        - eliminate duplicate keys (last key wins, torque compatible)</li>
+%% <li>`{dedupe_keys, Mode}' - eliminate duplicate keys with specified strategy:
+%%     <ul>
+%%     <li>`false' - allow duplicates (may cause map creation failure)</li>
+%%     <li>`true' or `last' - last key wins (torque compatible, default)</li>
+%%     <li>`first' - first key wins</li>
+%%     </ul></li>
+%% <li>`use_nil'            - decode JSON "null" as `nil'</li>
+%% <li>`{null_term, V}'     - use the given value `V' for a JSON "null"</li>
 %% </ul>
 
 -type encode_opt() ::
@@ -228,8 +235,13 @@ decode_test_() ->
     ?_assertEqual(#{<<"a">> => 1,<<"b">> => 2},  decode("{\"a\": 1, \"b\": 2}")),
     ?_assertEqual({[{<<"a">>, 1},{<<"b">>, 2}]}, decode("{\"a\": 1, \"b\": 2}", [object_as_tuple])),
     ?_assertEqual({[{<<"a">>, 1},{<<"a">>, 2}]}, decode("{\"a\": 1, \"a\": 2}", [object_as_tuple])),
-    ?_assertEqual({[{<<"a">>, 1}]},              decode("{\"a\": 1, \"a\": 2}", [object_as_tuple, dedupe_keys])),
-    ?_assertEqual(#{<<"a">> => 1},               decode("{\"a\": 1, \"a\": 2}", [dedupe_keys])),
+    ?_assertEqual({[{<<"a">>, 2}]},              decode("{\"a\": 1, \"a\": 2}", [object_as_tuple, dedupe_keys])),
+    ?_assertEqual(#{<<"a">> => 2},               decode("{\"a\": 1, \"a\": 2}", [dedupe_keys])),
+    %% Enhanced dedupe_keys tests
+    ?_assertEqual(#{<<"a">> => 1},               decode("{\"a\": 1, \"a\": 2}", [{dedupe_keys, first}])),
+    ?_assertEqual(#{<<"a">> => 2},               decode("{\"a\": 1, \"a\": 2}", [{dedupe_keys, last}])),
+    ?_assertEqual(#{<<"a">> => 2},               decode("{\"a\": 1, \"a\": 2}", [{dedupe_keys, true}])),
+    ?_assertException(error, dup_keys_found,     decode("{\"a\": 1, \"a\": 2}", [{dedupe_keys, false}])),
     ?_assertException(error, dup_keys_found,     decode("{\"a\": 1, \"a\": 2}")),
     ?_assertEqual(null,                          decode("null")),
     ?_assertEqual(nil,                           decode("null", [use_nil])),
@@ -310,13 +322,28 @@ benchmark(N, Bin, NameFuns) ->
   erlang:group_leader(whereis(init), self()),
   io:format("\n=== Benchmark (file size: ~.1fK) ===\n", [byte_size(Bin) / 1024]),
   P = self(),
-  L = [
+
+  % Base benchmarks that should always work
+  BaseBenchmarks = [
     {"simdjsone", fun(B) -> simdjson:decode(B)             end},
     {"jiffy",     fun(B) -> jiffy:decode(B, [return_maps]) end},
     {"json",      fun(B) -> json:decode(B)                 end},
     {"thoas",     fun(B) -> {ok, R} = thoas:decode(B),  R  end},
     {"euneus",    fun(B) -> {ok, R} = euneus:decode(B), R  end}
-  ] ++ NameFuns,
+  ],
+
+  % Optional benchmarks - add if available
+  OptionalBenchmarks = case torque_available() of
+    true -> [{"torque", fun(B) ->
+                case torque:decode(B) of
+                  {ok, Result} -> Result;
+                  Error -> Error
+                end
+              end}];
+    false -> []
+  end,
+
+  L = BaseBenchmarks ++ OptionalBenchmarks ++ NameFuns,
 
   Tasks = [{Name, spawn(fun() ->
               P ! {Name, tc(N, fun() -> Fun(Bin) end)}
@@ -357,5 +384,23 @@ call(N, X, F, Time1) ->
 return(N, Res, Time1, Time2) ->
   Int   = Time2 - Time1,
   {Int / N, Res}.
+
+%% Check if torque library is available and working
+torque_available() ->
+  try
+    % Check if torque module exists and can be called
+    case code:which(torque) of
+      non_existing -> false;
+      _ ->
+        % Try a simple decode to ensure it's working
+        % Torque returns {:ok, result} so we need to handle that
+        case catch torque:decode(<<"{\"test\":true}">>) of
+          {ok, #{<<"test">> := true}} -> true;
+          _ -> false
+        end
+    end
+  catch
+    _:_ -> false
+  end.
 
 -endif.

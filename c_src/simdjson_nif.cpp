@@ -6,6 +6,7 @@
 #include <vector>
 #include <cassert>
 #include <unordered_set>
+#include <unordered_map>
 #include <string>
 #include <string.h>
 
@@ -18,7 +19,8 @@ using simdjsone::DecodeOpts;
 
 static constexpr const size_t BYTES_PER_REDUCTION = 20;
 static constexpr const size_t ERL_REDUCTION_COUNT = 2000;
-static constexpr const size_t TIMESLICE_BYTES     = ERL_REDUCTION_COUNT * BYTES_PER_REDUCTION / 2;
+// Reduced threshold to move medium files to dirty scheduler (torque optimization)
+static constexpr const size_t TIMESLICE_BYTES     = 8192;  // Was: ERL_REDUCTION_COUNT * BYTES_PER_REDUCTION / 2 (20000)
 
 static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const DecodeOpts& opts)
 {
@@ -28,28 +30,50 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
   switch(elm.type()) {
     case dom::element_type::OBJECT: {
       auto   obj = dom::object(elm);
-      size_t i   = 0;
       if (opts.return_maps) {
-        std::vector<ERL_NIF_TERM> ks(obj.size());
-        std::vector<ERL_NIF_TERM> vs(obj.size());
+        std::vector<ERL_NIF_TERM> ks;
+        std::vector<ERL_NIF_TERM> vs;
+        ks.reserve(obj.size());  // Pre-allocate to avoid reallocations
+        vs.reserve(obj.size());
 
-        if (opts.dedupe_keys) {
+        if (opts.dedupe_mode == simdjsone::DedupeMode::FIRST) {
+          // First-key-wins deduplication
           std::unordered_set<std::string_view> seen;
+          seen.reserve(obj.size());  // Pre-allocate hash table
+
           for(auto field : obj) {
-            auto [_, inserted] = seen.emplace(field.key);
-            if (inserted) [[likely]] {
-              ks.at(i)   = make_binary(env, field.key);
-              vs.at(i++) = make_term(env, field.value, opts);
+            // Only add if key hasn't been seen before (first wins)
+            if (seen.insert(std::string_view(field.key)).second) [[likely]] {
+              ks.push_back(make_binary(env, field.key));
+              vs.push_back(make_term(env, field.value, opts));
             }
           }
-          if (i != obj.size()) [[unlikely]] {
-            ks.resize(i);
-            vs.resize(i);
+        } else if (opts.dedupe_mode == simdjsone::DedupeMode::LAST) {
+          // Last-key-wins deduplication (torque compatible)
+          std::unordered_map<std::string_view, size_t> key_positions;
+          key_positions.reserve(obj.size());  // Pre-allocate hash table
+
+          for(auto field : obj) {
+            std::string_view key_view(field.key);
+            auto it = key_positions.find(key_view);
+
+            if (it != key_positions.end()) [[unlikely]] {
+              // Replace existing key/value (last wins)
+              size_t pos = it->second;
+              ks[pos] = make_binary(env, field.key);
+              vs[pos] = make_term(env, field.value, opts);
+            } else [[likely]] {
+              // First occurrence of this key
+              size_t pos = ks.size();
+              key_positions[key_view] = pos;
+              ks.push_back(make_binary(env, field.key));
+              vs.push_back(make_term(env, field.value, opts));
+            }
           }
         } else {
           for(auto field : obj) {
-            ks.at(i)   = make_binary(env, field.key);
-            vs.at(i++) = make_term(env, field.value, opts);
+            ks.push_back(make_binary(env, field.key));
+            vs.push_back(make_term(env, field.value, opts));
           }
         }
 
@@ -57,29 +81,51 @@ static ERL_NIF_TERM make_term(ErlNifEnv* env, const dom::element& elm, const Dec
         return enif_make_map_from_arrays(env, ks.data(), vs.data(), ks.size(), &m)
             ? m : enif_raise_exception(env, AM_DUP_KEYS_FOUND);
       } else {
-        std::vector<ERL_NIF_TERM> items(obj.size());
-        if (opts.dedupe_keys) {
+        std::vector<ERL_NIF_TERM> items;
+        items.reserve(obj.size());  // Pre-allocate to avoid reallocations
+        if (opts.dedupe_mode == simdjsone::DedupeMode::FIRST) {
+          // First-key-wins deduplication
           std::unordered_set<std::string_view> seen;
+          seen.reserve(obj.size());  // Pre-allocate hash table
+
           for(auto field : obj) {
-            auto [_, inserted] = seen.emplace(field.key);
-            if (inserted) [[likely]]
-              items.at(i++) = enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts));
+            // Only add if key hasn't been seen before (first wins)
+            if (seen.insert(std::string_view(field.key)).second) [[likely]]
+              items.push_back(enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts)));
           }
-          if (i != obj.size()) [[unlikely]]
-            items.resize(i);
+        } else if (opts.dedupe_mode == simdjsone::DedupeMode::LAST) {
+          // Last-key-wins deduplication (torque compatible)
+          std::unordered_map<std::string_view, size_t> key_positions;
+          key_positions.reserve(obj.size());  // Pre-allocate hash table
+
+          for(auto field : obj) {
+            std::string_view key_view(field.key);
+            auto it = key_positions.find(key_view);
+
+            if (it != key_positions.end()) [[unlikely]] {
+              // Replace existing key/value (last wins)
+              size_t pos = it->second;
+              items[pos] = enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts));
+            } else [[likely]] {
+              // First occurrence of this key
+              size_t pos = items.size();
+              key_positions[key_view] = pos;
+              items.push_back(enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts)));
+            }
+          }
         } else {
           for(auto field : obj)
-            items.at(i++) = enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts));
+            items.push_back(enif_make_tuple2(env, make_binary(env, field.key), make_term(env, field.value, opts)));
         }
         return enif_make_tuple1(env, enif_make_list_from_array(env, items.data(), items.size()));
       }
     }
     case dom::element_type::ARRAY: {
       auto array = dom::array(elm);
-      int  i     = 0;
-      std::vector<ERL_NIF_TERM> cs(array.size());
+      std::vector<ERL_NIF_TERM> cs;
+      cs.reserve(array.size());  // Pre-allocate to avoid reallocations
       for(dom::element c : array)
-        cs.at(i++) = make_term(env, c, opts);
+        cs.push_back(make_term(env, c, opts));
       return enif_make_list_from_array(env, cs.data(), cs.size());
     }
     case dom::element_type::STRING: {
@@ -112,11 +158,22 @@ static ERL_NIF_TERM parse_opts(ErlNifEnv* env, ERL_NIF_TERM options, DecodeOpts&
     else if (enif_is_identical(head, AM_USE_NIL))
       null_term = AM_NIL;
     else if (enif_is_identical(head, AM_DEDUPE_KEYS))
-      opts.dedupe_keys = true;
+      opts.dedupe_mode = simdjsone::DedupeMode::LAST;  // 'true' defaults to 'last' (torque compatible)
     else if (!enif_get_tuple(env, head, &arity, &array) || arity != 2)
       return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, head));
     else if (enif_is_identical(array[0], AM_NULL_TERM))
       null_term = array[1];
+    else if (enif_is_identical(array[0], AM_DEDUPE_KEYS)) {
+      if (enif_is_identical(array[1], enif_make_atom(env, "false")))
+        opts.dedupe_mode = simdjsone::DedupeMode::NONE;
+      else if (enif_is_identical(array[1], enif_make_atom(env, "true")) ||
+               enif_is_identical(array[1], enif_make_atom(env, "last")))
+        opts.dedupe_mode = simdjsone::DedupeMode::LAST;
+      else if (enif_is_identical(array[1], enif_make_atom(env, "first")))
+        opts.dedupe_mode = simdjsone::DedupeMode::FIRST;
+      else
+        return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, head));
+    }
     else
       return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, head));
   }
@@ -459,6 +516,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
   AM_USE_NIL                    = enif_make_atom(env, "use_nil");
   AM_NULL_TERM                  = enif_make_atom(env, "null_term");
   AM_DEDUPE_KEYS                = enif_make_atom(env, "dedupe_keys");
+  AM_DEDUPE_FIRST               = enif_make_atom(env, "first");
+  AM_DEDUPE_LAST                = enif_make_atom(env, "last");
 
   AM_CAPACITY                   = enif_make_atom(env, "capacity");
   AM_MEMALLOC                   = enif_make_atom(env, "memalloc");
