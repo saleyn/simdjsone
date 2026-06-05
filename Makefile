@@ -14,6 +14,9 @@ clean:
 
 test:
 	rebar3 eunit
+	@echo ""
+	@echo "=== Running Performance Benchmarks ==="
+	@erl -noshell -pa _build/test/lib/*/ebin -eval "simdjson:benchmark([]), halt()."
 
 publish:
 	rebar3 hex $(if $(replace),publish --replace,cut)
@@ -26,7 +29,7 @@ nif:
 	make -C c_src
 
 benchmark:
-	@[ -n "$(MIX_ENV)" ] && mix benchmark           || true
-	@[ -z "$(MIX_ENV)" ] && rebar3 as test do eunit || true
+	@[ -n "$(MIX_ENV)" ] && elixir -pa _build/test/lib/simdjsone/ebin -pa _build/test/lib/torque/ebin -pa _build/test/lib/jason/ebin -pa _build/test/lib/poison/ebin -pa _build/test/lib/jiffy/ebin -pa _build/test/lib/thoas/ebin -pa _build/test/lib/euneus/ebin benchmark_with_torque.exs || true
+	@[ -z "$(MIX_ENV)" ] && BENCHMARK_MODE=true rebar3 as test do eunit || true
 
 .PHONY: test

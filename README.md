@@ -124,7 +124,7 @@ ok
 The `dedupe_keys` option provides comprehensive control over duplicate key handling:
 
 ```erlang
-% Strict mode (default) - rejects duplicates (JSON standard compliant)
+% Strict mode (default: {dedupe_keys, last}) - rejects duplicates (JSON standard compliant)
 simdjson:decode("{\"a\":1,\"a\":2}").
 % => ** (error) dup_keys_found
 
@@ -220,26 +220,30 @@ do the following (prefix the command with `CXX=clang++` for using Clang C++
 compiler):
 ```
 $ make benchmark
-== Benchmark (file size: 616.7K) ===
-   simdjsone:   3062.270us
-        json:   6613.440us
-       thoas:   6629.360us
-      euneus:   6960.360us
-       jiffy:   9071.070us
+=== Benchmark (file size: 616.7K) ===
+   simdjsone:   2689.720us
+        json:   5859.400us
+       thoas:   6380.330us
+      euneus:   6420.640us
+       jiffy:   8376.120us
+
+Successful: 5/5 libraries
 
 === Benchmark (file size: 1.3K) ===
-   simdjsone:      4.110us
-        json:      6.940us
-       jiffy:      9.320us
-       thoas:     11.410us
-      euneus:     11.700us
+   simdjsone:      3.840us
+       jiffy:      8.510us
+        json:      8.600us
+      euneus:      9.630us
+       thoas:     12.040us
+
+Successful: 5/5 libraries
 
 === Benchmark (file size: 0.1K) ===
-   simdjsone:      0.760us
-       jiffy:      1.820us
-       thoas:      2.080us
-      euneus:      3.010us
-        json:      3.150us
+   simdjsone:      0.740us
+       jiffy:      1.700us
+        json:      2.280us
+       thoas:      2.750us
+      euneus:      3.570us
 ```
 If you have Elixir installed, the project also includes a benchmark for the
 [jason](https://hex.pm/packages/jason) and
