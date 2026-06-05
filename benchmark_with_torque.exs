@@ -5,7 +5,8 @@ Mix.install([
   {:jason, "~> 1.4"},
   {:thoas, "~> 1.0"},
   {:euneus, "~> 2.0"},
-  {:poison, "~> 6.0"}
+  {:poison, "~> 6.0"},
+  {:simdjsone, github: "saleyn/simdjsone", branch: "next"},
 ])
 
 defmodule JSONBenchmark do

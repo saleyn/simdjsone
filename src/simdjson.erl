@@ -375,10 +375,10 @@ time_it(F) ->
   end.
 
 call(1, X, F, Time1) ->
-  Res = (catch F()),
+  Res = try F() catch E -> E end,
   return(X, Res, Time1, erlang:system_time(microsecond));
 call(N, X, F, Time1) ->
-  (catch F()),
+  try F() catch E -> E end,
   call(N-1, X, F, Time1).
 
 return(N, Res, Time1, Time2) ->
@@ -394,7 +394,7 @@ torque_available() ->
       _ ->
         % Try a simple decode to ensure it's working
         % Torque returns {:ok, result} so we need to handle that
-        case catch torque:decode(<<"{\"test\":true}">>) of
+        case try torque:decode(<<"{\"test\":true}">>) catch E -> E end of
           {ok, #{<<"test">> := true}} -> true;
           _ -> false
         end

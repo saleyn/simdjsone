@@ -23,7 +23,7 @@ CXX_VSN   ?= $(shell $(CXX) --version | sed -n '1s/^[^0-9]\+\([0-9]\+\)\(.[0-9-]
 # Performance optimization levels
 ifeq ($(NIF_DEBUG),0)
   # Release build optimizations
-  OPTIMIZE  = -O3 -DNDEBUG -flto -fno-fat-lto-objects
+  OPTIMIZE  = -O3 -DNDEBUG -flto=auto -fno-fat-lto-objects
 
   # Add native architecture optimizations (can be disabled with NATIVE=0)
   ifneq ($(NATIVE),0)
