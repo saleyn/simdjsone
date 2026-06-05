@@ -1,13 +1,41 @@
 # Elixir script to benchmark JSON libraries including Torque
-Mix.install([
-  {:torque, "~> 0.1.9"},
-  {:jiffy, "~> 1.1.1"},
-  {:jason, "~> 1.4"},
-  {:thoas, "~> 1.0"},
-  {:euneus, "~> 2.0"},
-  {:poison, "~> 6.0"},
-  {:simdjsone, github: "saleyn/simdjsone", branch: "next"},
-])
+# Run with: MIX_ENV=test make benchmark
+#
+# Environment variables to control simdjsone optimization level:
+# SIMDJSONE_ORIGINAL=1   - Use original decoder (for comparison only)
+# (no env var)           - Use Ultimate adaptive decoder (default, recommended)
+
+optimization = cond do
+  System.get_env("SIMDJSONE_ORIGINAL") == "1" -> "Original (for comparison)"
+  true -> "Ultimate adaptive (default)"
+end
+
+IO.puts("🚀 Using simdjsone #{optimization}")
+
+# Ensure applications are loaded
+Application.ensure_all_started(:simdjsone)
+Application.ensure_all_started(:jiffy)
+Application.ensure_all_started(:thoas)
+Application.ensure_all_started(:euneus)
+
+# Try to start optional applications
+try do
+  Application.ensure_all_started(:torque)
+rescue
+  _ -> :ok
+end
+
+try do
+  Application.ensure_all_started(:jason)
+rescue
+  _ -> :ok
+end
+
+try do
+  Application.ensure_all_started(:poison)
+rescue
+  _ -> :ok
+end
 
 defmodule JSONBenchmark do
   def run do
@@ -31,10 +59,20 @@ defmodule JSONBenchmark do
     {:ok, json_data} = File.read(file)
     file_size_kb = byte_size(json_data) / 1024
 
-    IO.puts("\n=== Benchmark #{size_desc} (file size: #{:erlang.float_to_binary(file_size_kb, decimals: 1)}K) ===")
+    # Determine current simdjsone optimization level for display
+    optimization_level = cond do
+      System.get_env("SIMDJSONE_ULTIMATE") == "1" -> "Ultimate"
+      System.get_env("SIMDJSONE_PHASE3") == "1" -> "Phase3"
+      System.get_env("SIMDJSONE_PHASE2") == "1" -> "Phase2"
+      System.get_env("SIMDJSONE_OPTIMIZED") == "1" -> "Phase1"
+      true -> "Original"
+    end
 
-    # Libraries to benchmark
-    libraries = [
+    IO.puts("\n=== Benchmark #{size_desc} (file size: #{:erlang.float_to_binary(file_size_kb, decimals: 1)}K) ===")
+    IO.puts("simdjsone optimization: #{optimization_level}")
+
+    # Libraries to benchmark (with availability checks)
+    all_libraries = [
       {"simdjsone", fn data -> :simdjson.decode(data) end},
       {"torque", fn data ->
         case Torque.decode(data) do
@@ -58,6 +96,20 @@ defmodule JSONBenchmark do
         end
       end}
     ]
+
+    # Filter to only available libraries
+    libraries = Enum.filter(all_libraries, fn {name, _} ->
+      case name do
+        "simdjsone" -> Code.ensure_loaded?(:simdjson)
+        "torque" -> Code.ensure_loaded?(Torque)
+        "jason" -> Code.ensure_loaded?(Jason)
+        "poison" -> Code.ensure_loaded?(Poison)
+        "jiffy" -> Code.ensure_loaded?(:jiffy)
+        "thoas" -> Code.ensure_loaded?(:thoas)
+        "euneus" -> Code.ensure_loaded?(:euneus)
+        _ -> false
+      end
+    end)
 
     # Benchmark each library
     results = Enum.map(libraries, fn {name, decode_fn} ->

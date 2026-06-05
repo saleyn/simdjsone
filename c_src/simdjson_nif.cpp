@@ -13,6 +13,7 @@
 #include "simdjson_atoms.hpp"
 #include "simdjson_decoder.hpp"
 #include "simdjson_encoder.hpp"
+#include "adaptive_decoder.hpp"
 
 using namespace simdjson;
 using simdjsone::DecodeOpts;
@@ -164,12 +165,12 @@ static ERL_NIF_TERM parse_opts(ErlNifEnv* env, ERL_NIF_TERM options, DecodeOpts&
     else if (enif_is_identical(array[0], AM_NULL_TERM))
       null_term = array[1];
     else if (enif_is_identical(array[0], AM_DEDUPE_KEYS)) {
-      if (enif_is_identical(array[1], enif_make_atom(env, "false")))
+      if (enif_is_identical(array[1], AM_FALSE))
         opts.dedupe_mode = simdjsone::DedupeMode::NONE;
-      else if (enif_is_identical(array[1], enif_make_atom(env, "true")) ||
-               enif_is_identical(array[1], enif_make_atom(env, "last")))
+      else if (enif_is_identical(array[1], AM_TRUE) ||
+               enif_is_identical(array[1], AM_DEDUPE_LAST))
         opts.dedupe_mode = simdjsone::DedupeMode::LAST;
-      else if (enif_is_identical(array[1], enif_make_atom(env, "first")))
+      else if (enif_is_identical(array[1], AM_DEDUPE_FIRST))
         opts.dedupe_mode = simdjsone::DedupeMode::FIRST;
       else
         return enif_raise_exception(env, enif_make_tuple2(env, AM_BADARG, head));
@@ -183,11 +184,32 @@ static ERL_NIF_TERM parse_opts(ErlNifEnv* env, ERL_NIF_TERM options, DecodeOpts&
   return AM_OK;
 }
 
+// Simple decoder selection: Ultimate (default) or Original (legacy)
+static bool use_original_decoder() {
+  static bool checked = false;
+  static bool use_original = false;
+
+  if (!checked) {
+    const char* original_env = std::getenv("SIMDJSONE_ORIGINAL");
+    use_original = (original_env && (strcmp(original_env, "1") == 0 || strcmp(original_env, "true") == 0));
+    checked = true;
+  }
+
+  return use_original;
+}
+
 static ERL_NIF_TERM decode(ErlNifEnv* env, const ErlNifBinary& bin, const DecodeOpts& opts)
 {
-  simdjsone::OnDemandDecoder decoder(env, opts);
   try {
-    return decoder.to_json(bin);
+    if (use_original_decoder()) {
+      // Legacy original decoder (for compatibility testing)
+      simdjsone::OnDemandDecoder decoder(env, opts);
+      return decoder.to_json(bin);
+    } else {
+      // Default: Ultimate optimized decoder with adaptive algorithm selection
+      simdjsone::UltimateOptimizedDecoder decoder(env, opts);
+      return decoder.decode_json(bin);
+    }
   } catch (simdjson_error const& e) {
     return enif_raise_exception(env, error_reason(env, e.error()));
   }
