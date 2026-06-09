@@ -2,6 +2,8 @@
 
 [![build](https://github.com/saleyn/simdjsone/actions/workflows/erlang.yml/badge.svg)](https://github.com/saleyn/simdjsone/actions/workflows/erlang.yml)
 
+## NOTE: this project is deprecated and transitioned to a better performing [glazer](https://github.com/saleyn/glazer)
+
 An implementation of the fastest JSON parser for Erlang/Elixir using the C++
 [simdjson](https://github.com/simdjson/simdjson) NIF library. The decoding speed
 of this parser is about 2.5 times faster than `jiffy`.
